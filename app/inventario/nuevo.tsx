@@ -8,8 +8,14 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  DeviceEventEmitter // 🚀 IMPORTAMOS AQUÍ TAMBIÉN
+  ,
+
+
   FlatList,
   Image, KeyboardAvoidingView,
+  Linking // 🚀 AÑADE ESTO PARA ABRIR ENLACES
+  ,
   Modal,
   Platform,
   ScrollView,
@@ -124,6 +130,7 @@ export default function NuevoInmuebleScreen() {
   // 🔄 ESTADO MULTIMEDIA UNIFICADO (Fotos Locales + Fotos en Nube)
   const [archivos, setArchivos] = useState({ legales: [] as any[] });
   const [galeria, setGaleria] = useState<any[]>([]);
+  const [documentosExistentes, setDocumentosExistentes] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     sincronizar_wasi: false,
@@ -264,7 +271,8 @@ export default function NuevoInmuebleScreen() {
           const { data: resInm } = await supabase.from('inmuebles').select(`
             *, 
             inmuebles_caracteristicas(id_caracteristica), 
-            inmuebles_imagenes(url_imagen, es_principal, orden)
+            inmuebles_imagenes(url_imagen, es_principal, orden),
+            inmuebles_documentos(nombre_archivo, url_archivo, formato) 
           `).eq('id_inmueble', id).single();
 
           if (resInm) {
@@ -297,6 +305,7 @@ export default function NuevoInmuebleScreen() {
             })) || [];
             
             setGaleria(fotosNube);
+            setDocumentosExistentes(resInm.inmuebles_documentos || []);
           }
         }
       } catch (err) {
@@ -376,10 +385,13 @@ export default function NuevoInmuebleScreen() {
     setIsGeneratingAI(true);
     try {
       const payload = { 
+        // 🔥 Buscamos el nombre del tipo de inmueble
+        tipo_inmueble: catalogos.tipos.find((t:any) => t.id_tipo === formData.datos_generales.id_tipo_inmueble)?.nombre || "",
         tipo_negocio: formData.datos_generales.tipo_negocio, 
         habitaciones: formData.datos_generales.habitaciones, 
         banos: formData.datos_generales.banos, 
         area: formData.datos_generales.area_construida, 
+        // Si quieres, aquí también puedes enviarle el estado y ciudad si los tienes a mano
         instrucciones_extra: "Actúa como copywriter inmobiliario experto. Redacta un texto persuasivo y elegante para la venta/alquiler. Omite precios." 
       };
       const res = await fetch(`${WEB_API_URL}/api/ia/generar-copy`, { 
@@ -422,6 +434,9 @@ export default function NuevoInmuebleScreen() {
       "🚀 Procesando Inmueble", 
       "El inmueble se está subiendo de forma segura. Puedes seguir navegando en la app, pero por favor no la cierres por completo hasta terminar."
     );
+
+    // 🚀 AVISAMOS AL INVENTARIO QUE EMPEZÓ LA SUBIDA
+    DeviceEventEmitter.emit('inmueble_subiendo');
 
     // Redirigimos inmediatamente al dashboard para bloquear la edición
     router.back();
@@ -475,11 +490,16 @@ export default function NuevoInmuebleScreen() {
         });
       }
 
+      const payloadDocumentosFinal = [
+        ...documentosExistentes, 
+        ...docsPayload
+      ];
+
       const jsonPayloadMaestro = { 
         id_inmueble: isEditMode ? id : undefined, 
         ...formData, 
         inmuebles_imagenes: imgsPayload, 
-        inmuebles_documentos: docsPayload 
+        inmuebles_documentos: payloadDocumentosFinal 
       };
 
       const res = await fetch(`${WEB_API_URL}/api/inmuebles`, { 
@@ -495,12 +515,15 @@ export default function NuevoInmuebleScreen() {
 
       if (!result.success) {
         console.error("Fallo Core Background:", result.error);
+        DeviceEventEmitter.emit('inmueble_error'); // 🚀 AVISAMOS DE ERROR
       } else {
         console.log("✅ Inmueble publicado con éxito en background");
+        DeviceEventEmitter.emit('inmueble_exito'); // 🚀 AVISAMOS DE ÉXITO
       }
 
     } catch (e: any) {
       console.error("Error Crítico Background:", e);
+      DeviceEventEmitter.emit('inmueble_error'); // 🚀 AVISAMOS DE ERROR
     } finally {
       setIsSubmitting(false);
     }
@@ -767,8 +790,42 @@ export default function NuevoInmuebleScreen() {
                 <Feather name="file-text" size={16} color="#d97706" /><Text style={[styles.btnPickMediaText, {color:'#d97706'}]}>AÑADIR PDFs / CÉDULAS</Text>
               </TouchableOpacity>
 
+              {/* ☁️ DOCUMENTOS EXISTENTES EN LA NUBE */}
+              {documentosExistentes.length > 0 && <Text style={[styles.labelInput, {marginTop: 15}]}>Archivos en la Nube:</Text>}
+              {documentosExistentes.map((doc: any, idx: number) => (
+                <View key={`cloud-${idx}`} style={styles.docRowFile}>
+                  <Feather name="cloud" size={14} color="#0ea5e9" />
+                  <Text style={styles.docRowText} numberOfLines={1}>{doc.nombre_archivo || 'Documento Legal'}</Text>
+                  
+                  {/* Botón para Abrir/Descargar */}
+                  <TouchableOpacity onPress={() => Linking.openURL(doc.url_archivo)} style={{padding: 6, marginRight: 5}}>
+                    <Feather name="external-link" size={16} color="#10b981" />
+                  </TouchableOpacity>
+                  
+                  {/* Botón para Eliminar */}
+                  <TouchableOpacity onPress={() => {
+                    Alert.alert("¿Eliminar?", "Se borrará al guardar los cambios.", [
+                      { text: "Cancelar", style: "cancel" },
+                      { text: "Quitar", style: "destructive", onPress: () => setDocumentosExistentes(prev => prev.filter((_, i) => i !== idx)) }
+                    ]);
+                  }} style={{padding: 6}}>
+                    <Feather name="trash-2" size={16} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {/* 📱 NUEVOS DOCUMENTOS LOCALES POR SUBIR */}
+              {archivos.legales.length > 0 && <Text style={[styles.labelInput, {marginTop: 15}]}>Archivos por Subir:</Text>}
               {archivos.legales.map((doc: any, idx: number) => (
-                <View key={idx} style={styles.docRowFile}><Feather name="file" size={14} color="#64748b" /><Text style={styles.docRowText} numberOfLines={1}>{doc.name}</Text></View>
+                <View key={`local-${idx}`} style={[styles.docRowFile, {borderColor: '#f59e0b', backgroundColor: '#fffbeb'}]}>
+                  <Feather name="file" size={14} color="#d97706" />
+                  <Text style={[styles.docRowText, {color: '#92400e'}]} numberOfLines={1}>{doc.name}</Text>
+                  
+                  {/* Botón para Quitar de la lista de subida */}
+                  <TouchableOpacity onPress={() => setArchivos(p => ({...p, legales: p.legales.filter((_, i) => i !== idx)}))} style={{padding: 6}}>
+                    <Feather name="x" size={16} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
               ))}
             </View>
           </View>

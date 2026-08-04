@@ -5,6 +5,8 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  DeviceEventEmitter // 🚀 IMPORTAMOS EL COMUNICADOR GLOBAL
+  ,
   FlatList,
   Image,
   ImageBackground,
@@ -230,7 +232,7 @@ export default function InventarioScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   // 🚀 NUEVO: ESTADO PARA MOSTRAR/OCULTAR EL AVISO DE SEGUNDO PLANO
-  const [showSyncWarning, setShowSyncWarning] = useState(true);
+  const [showSyncWarning, setShowSyncWarning] = useState(false);
 
   // Paginación y Totales
   const [currentPage, setCurrentPage] = useState(1);
@@ -286,6 +288,34 @@ export default function InventarioScreen() {
     arrancarCore();
   }, []);
 
+  // 🚀 ESCUCHADOR DE EVENTOS DE SEGUNDO PLANO
+  useEffect(() => {
+    // Cuando el formulario avise que empezó a subir, prendemos el banner
+    const subStart = DeviceEventEmitter.addListener('inmueble_subiendo', () => {
+      setShowSyncWarning(true);
+    });
+
+    // Cuando el formulario avise que terminó, apagamos el banner y recargamos la lista
+    const subSuccess = DeviceEventEmitter.addListener('inmueble_exito', () => {
+      setShowSyncWarning(false);
+      handleRefresh(); // 🚀 Recarga el inventario mágicamente para mostrar la nueva casa
+      Alert.alert("¡Inmueble Publicado!", "El inmueble y sus fotos se subieron correctamente en segundo plano.");
+    });
+
+    // Si hubo un error en segundo plano, apagamos el banner y avisamos
+    const subError = DeviceEventEmitter.addListener('inmueble_error', () => {
+      setShowSyncWarning(false);
+      Alert.alert("Error de Subida", "Hubo un problema subiendo el inmueble en segundo plano. Revisa tu conexión.");
+    });
+
+    // Limpiamos los escuchadores si se cierra la pantalla
+    return () => {
+      subStart.remove();
+      subSuccess.remove();
+      subError.remove();
+    };
+  }, []);
+  
   const fetchInmuebles = async (pageNumber: number, isRefresh = false) => {
     if (isRefresh) { setLoading(true); } else { setIsLoadingMore(true); }
 

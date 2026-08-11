@@ -12,10 +12,12 @@ import {
   ,
 
 
+
   FlatList,
   Image, KeyboardAvoidingView,
   Linking // 🚀 AÑADE ESTO PARA ABRIR ENLACES
   ,
+
   Modal,
   Platform,
   ScrollView,
@@ -125,7 +127,7 @@ export default function NuevoInmuebleScreen() {
   const opcionesPeriodo = [{ id: 'Mensual', nombre: 'Mensual' }, { id: 'Diario', nombre: 'Diario' }, { id: 'Anual', nombre: 'Anual' }];
   const opcionesEstatus = [{ id: 'Activo', nombre: 'Activo' }, { id: 'Destacado', nombre: 'Destacado' }, { id: 'Inactivo', nombre: 'Inactivo' }];
   const opcionesEstadoFisico = [{ id: 'Usado', nombre: 'Usado' }, { id: 'Nuevo', nombre: 'Nuevo' }, { id: 'En Construcción', nombre: 'En Construcción' }, { id: 'Proyecto', nombre: 'Proyecto' }];
-  const opcionesComision = [{ id: 'PORCENTAJE', nombre: 'Porcentaje %' }, { id: 'FIJA', nombre: 'Cantidad Fija $' }];
+  const opcionesComision = [{ id: 'PORCENTAJE', nombre: 'Porcentaje %' }, { id: 'FIJO', nombre: 'Cantidad Fija $' }];
 
   // 🔄 ESTADO MULTIMEDIA UNIFICADO (Fotos Locales + Fotos en Nube)
   const [archivos, setArchivos] = useState({ legales: [] as any[] });

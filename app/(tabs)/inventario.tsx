@@ -7,6 +7,7 @@ import {
   Alert,
   DeviceEventEmitter // 🚀 IMPORTAMOS EL COMUNICADOR GLOBAL
   ,
+
   FlatList,
   Image,
   ImageBackground,
@@ -26,6 +27,7 @@ import { supabase } from '../../lib/supabase';
 // --- CONFIGURACIÓN ---
 const PAGE_SIZE = 15;
 const WEB_API_URL = 'https://inmotechve.com';
+const APP_VERSION = 'v1.0.5'
 
 // 🚀 TRADUCTOR INTELIGENTE DE HTML A TEXTO MÓVIL
 const formatearDescripcionMovil = (htmlText: string) => {
@@ -596,7 +598,14 @@ export default function InventarioScreen() {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View>
-            <Text style={styles.headerTitle}>Inventario Mettryc Realty</Text>
+            {/* 🚀 TÍTULO CON BADGE DE VERSIÓN INTEGRADO */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.headerTitle}>Inventario Mettryc Realty</Text>
+              <View style={styles.versionBadge}>
+                <Text style={styles.versionText}>{APP_VERSION}</Text>
+              </View>
+            </View>
+            
             <Text style={styles.headerSubtitle}>
               {loading && currentPage === 1 ? 'Calculando bóveda...' : `${totalRegistros} inmuebles encontrados`}
             </Text>
@@ -604,16 +613,6 @@ export default function InventarioScreen() {
           <TouchableOpacity style={styles.btnAgregar} onPress={() => router.push('/inventario/nuevo')}>
                 <Feather name="plus" size={20} color="#ffffff" />
             </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <Feather name="search" size={16} color="#94a3b8" />
-            <TextInput style={styles.searchInput} placeholder="Buscar por código, título..." value={searchQuery} onChangeText={setSearchQuery} placeholderTextColor="#94a3b8" />
-          </View>
-          <TouchableOpacity style={[styles.filterBtn, showFiltersModal && styles.filterBtnActive]} onPress={() => setShowFiltersModal(true)}>
-            <Feather name="sliders" size={16} color="#0f172a" />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -875,6 +874,8 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 24, fontWeight: '900', color: '#0f172a' },
   headerSubtitle: { fontSize: 11, fontWeight: '700', color: '#38bdf8', marginTop: 2, letterSpacing: 0.5 },
+  versionBadge: { backgroundColor: '#e2e8f0', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, marginTop: 2 },
+  versionText: { fontSize: 9, fontWeight: '900', color: '#64748b', letterSpacing: 0.5 },
   btnAgregar: { width: 38, height: 38, backgroundColor: '#0f172a', borderRadius: 12, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
   searchRow: { flexDirection: 'row', gap: 10, marginTop: 15 },
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 14, paddingHorizontal: 15, height: 48, borderWidth: 1, borderColor: '#e2e8f0' },

@@ -8,6 +8,7 @@ import {
   DeviceEventEmitter // 🚀 IMPORTAMOS EL COMUNICADOR GLOBAL
   ,
 
+
   FlatList,
   Image,
   ImageBackground,
@@ -28,7 +29,6 @@ import { supabase } from '../../lib/supabase';
 const PAGE_SIZE = 15;
 const WEB_API_URL = 'https://inmotechve.com';
 const APP_VERSION = 'v1.0.5'
-
 // 🚀 TRADUCTOR INTELIGENTE DE HTML A TEXTO MÓVIL
 const formatearDescripcionMovil = (htmlText: string) => {
   if (!htmlText) return 'Sin descripción';
@@ -613,6 +613,16 @@ export default function InventarioScreen() {
           <TouchableOpacity style={styles.btnAgregar} onPress={() => router.push('/inventario/nuevo')}>
                 <Feather name="plus" size={20} color="#ffffff" />
             </TouchableOpacity>
+        </View>
+
+        <View style={styles.searchRow}>
+          <View style={styles.searchBox}>
+            <Feather name="search" size={16} color="#94a3b8" />
+            <TextInput style={styles.searchInput} placeholder="Buscar por código, título..." value={searchQuery} onChangeText={setSearchQuery} placeholderTextColor="#94a3b8" />
+          </View>
+          <TouchableOpacity style={[styles.filterBtn, showFiltersModal && styles.filterBtnActive]} onPress={() => setShowFiltersModal(true)}>
+            <Feather name="sliders" size={16} color="#0f172a" />
+          </TouchableOpacity>
         </View>
       </View>
 

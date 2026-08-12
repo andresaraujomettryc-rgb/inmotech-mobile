@@ -386,7 +386,7 @@ export default function GeneradorFlyerScreen() {
 
                 {/* DERECHA: Firma del Sistema */}
                 <View style={{alignItems: 'flex-end'}}>
-                   <Text style={[styles.fSystemBrand, {color: theme.subTextColor}, theme.shadowStyle]}>SISTEMA INMOTECH ERP</Text>
+                   <Text style={[styles.fSystemBrand, {color: theme.subTextColor}, theme.shadowStyle]}>INMOTECH ERP</Text>
                    <Text style={[styles.fSystemSub, {color: theme.subTextColor}, theme.shadowStyle]}></Text>
                 </View>
 
@@ -450,15 +450,15 @@ const styles = StyleSheet.create({
 
   // Header Flyer
   fHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 10 },
-  fHeaderData: { flex: 1, paddingRight: 10 },
+  fHeaderData: { flex: 1, paddingRight: 6 },
   fBadges: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   fBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   fBadgeText: { fontSize: 8, fontWeight: '900' },
   fBadgeRef: { fontSize: 8, fontWeight: '800' },
-  fTitle: { fontSize: 13, fontWeight: '900', lineHeight: 16 },
-  fLocation: { fontSize: 9, fontWeight: '700', marginTop: 3 },
-  fLogoWrapper: { alignItems: 'flex-end' },
-  fLogoMettryc: { width: 80, height: 26, resizeMode: 'contain' },
+  fTitle: { fontSize: 13, fontWeight: '900', lineHeight: 15, flexShrink: 1, width: '100%' },
+  fLocation: { fontSize: 8, fontWeight: '700', marginTop: 3 },
+  fLogoWrapper: { alignItems: 'flex-end',width: 60 },
+  fLogoMettryc: { width: 60, height: 26, resizeMode: 'contain' },
 
   // Centro
   fCollageBlock: { height: 160, marginVertical: 8, zIndex: 10 },

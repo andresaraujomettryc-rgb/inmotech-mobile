@@ -10,6 +10,7 @@ import {
 
 
 
+
   FlatList,
   Image,
   ImageBackground,
@@ -50,6 +51,12 @@ interface InmuebleReal {
   tipo_estado: string; estatus_publicacion: string; foto_portada: string; tipo_inmueble_nombre: string;
   pais_nombre: string; estado_nombre: string; ciudad_nombre: string; municipio_nombre: string; urbanizacion_nombre: string;
   id_usuario_encargado: string; asesor_nombre: string; asesor_telefono: string; observaciones: string | null;
+  estadisticas?: {
+    vistas: number;
+    descargas_fotos: number;
+    compartidos: number;
+    clics_whatsapp: number;
+  } | null;
 }
 
 // =========================================================================
@@ -328,7 +335,8 @@ export default function InventarioScreen() {
         area_construida, area_terreno, habitaciones, banos, estacionamientos, tipo_estado, estatus_publicacion, observaciones,
         id_usuario_encargado, geo_paises(nombre), geo_estados(nombre), geo_ciudades(nombre), geo_municipios(nombre), geo_urbanizaciones(nombre),
         catalogo_tipos_inmueble(nombre), usuarios!id_usuario_encargado(nombre_completo, celular_1), 
-        inmuebles_imagenes(url_imagen, orden, es_principal) 
+        inmuebles_imagenes(url_imagen, orden, es_principal) ,
+        inmuebles_estadisticas(vistas, descargas_fotos, compartidos, clics_whatsapp)
       `, { count: 'exact' });
 
       if (searchQuery) query = query.or(`titulo.ilike.%${searchQuery}%,codigo_interno.ilike.%${searchQuery}%`);
@@ -395,6 +403,9 @@ export default function InventarioScreen() {
             tipo_inmueble_nombre: row.catalogo_tipos_inmueble?.nombre || 'Inmueble',
             asesor_nombre: row.usuarios?.nombre_completo || 'Sin Asignar',
             asesor_telefono: row.usuarios?.celular_1 || '',
+            estadisticas: Array.isArray(row.inmuebles_estadisticas) 
+                            ? row.inmuebles_estadisticas[0] 
+                            : row.inmuebles_estadisticas || null
           };
         });
 
@@ -496,7 +507,16 @@ export default function InventarioScreen() {
     if (inm.estacionamientos > 0) msg += `• Estacionamiento: ${inm.estacionamientos}\n`;
     msg += `\nMás información y fotos: ${url}`;
 
-    try { await Share.share({ message: msg, url: url }); } catch (e) { console.error(e); }
+    try { 
+      const result = await Share.share({ message: msg, url: url }); 
+      
+      // 🚀 NUEVO: Si la acción fue exitosa (no la canceló), sumamos el compartido
+      if (result.action === Share.sharedAction) {
+        supabase.rpc('incrementar_metrica_inmueble', { p_id_inmueble: inm.id_inmueble, p_metrica: 'compartido' }).then(({ error }) => { if (error) console.warn("Error en telemetría:", error); });
+      }
+    } catch (e) { 
+      console.error(e); 
+    }
   };
 
   const manejarEliminar = async (id: string) => {
@@ -573,14 +593,41 @@ export default function InventarioScreen() {
             <Text style={styles.miniFeatureText}>🛁 {item.banos} B</Text>
           </View>
 
+                    
           <View style={styles.divider} />
 
           <View style={styles.agentRow}>
+            {/* Contenedor de Información del Asesor (Columna vertical) */}
             <View style={styles.agentInfo}>
               <Text style={styles.agentLabel}>ASESOR ENCARGADO</Text>
               <Text style={styles.agentName}><Feather name="user" size={12} color="#64748b"/> {item.asesor_nombre}</Text>
+
+              {/* 🚀 MICRO-BARRA DE ESTADÍSTICAS (MÉTELA AQUÍ ADENTRO) */}
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Feather name="eye" size={11} color="#94a3b8" />
+                  <Text style={styles.statText}>{item.estadisticas?.vistas || 0}</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Feather name="download" size={11} color="#94a3b8" />
+                  <Text style={styles.statText}>{item.estadisticas?.descargas_fotos || 0}</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Feather name="share-2" size={11} color="#94a3b8" />
+                  <Text style={styles.statText}>{item.estadisticas?.compartidos || 0}</Text>
+                </View>
+                <View style={[styles.statItem, styles.statWhatsapp]}>
+                  <FontAwesome5 name="whatsapp" size={11} color="#10b981" />
+                  <Text style={styles.statTextWhatsapp}>{item.estadisticas?.clics_whatsapp || 0}</Text>
+                </View>
+              </View>
             </View>
-            <TouchableOpacity onPress={() => Linking.openURL(`whatsapp://send?phone=${item.asesor_telefono.replace(/\D/g, '')}`)} style={styles.btnWhatsapp}>
+          
+            <TouchableOpacity onPress={() => {
+                supabase.rpc('incrementar_metrica_inmueble', { p_id_inmueble: item.id_inmueble, p_metrica: 'whatsapp' }).then(({ error }) => { if (error) console.warn("Error en telemetría:", error); });
+                Linking.openURL(`whatsapp://send?phone=${item.asesor_telefono.replace(/\D/g, '')}`);
+              }} 
+              style={styles.btnWhatsapp}>
               <FontAwesome5 name="whatsapp" size={16} color="#ffffff" />
             </TouchableOpacity>
           </View>
@@ -919,6 +966,12 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15, fontWeight: '900', color: '#0ea5e9', lineHeight: 22, textTransform: 'uppercase', textDecorationLine: 'underline' },
   cardLocation: { fontSize: 11, color: '#475569', fontWeight: '600', marginTop: 8, lineHeight: 15 },
   miniFeatures: { flexDirection: 'row', gap: 15, marginTop: 10 },
+  // Estilos de la Micro-Barra de Estadísticas
+  statsRow: { flexDirection: 'row', gap: 14, marginTop: 8, alignItems: 'center' },
+  statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statText: { fontSize: 10, fontWeight: '800', color: '#94a3b8' },
+  statWhatsapp: { backgroundColor: '#ecfdf5', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: '#d1fae5' },
+  statTextWhatsapp: { fontSize: 10, fontWeight: '900', color: '#10b981' },
   miniFeatureText: { fontSize: 11, fontWeight: '700', color: '#64748b' },
   divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 14 },
 

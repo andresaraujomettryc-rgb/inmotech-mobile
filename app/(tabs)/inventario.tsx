@@ -11,6 +11,7 @@ import {
 
 
 
+
   FlatList,
   Image,
   ImageBackground,
@@ -335,7 +336,7 @@ export default function InventarioScreen() {
         area_construida, area_terreno, habitaciones, banos, estacionamientos, tipo_estado, estatus_publicacion, observaciones,
         id_usuario_encargado, geo_paises(nombre), geo_estados(nombre), geo_ciudades(nombre), geo_municipios(nombre), geo_urbanizaciones(nombre),
         catalogo_tipos_inmueble(nombre), usuarios!id_usuario_encargado(nombre_completo, celular_1), 
-        inmuebles_imagenes(url_imagen, orden, es_principal) ,
+        inmuebles_imagenes(url_imagen, orden, es_principal),
         inmuebles_estadisticas(vistas, descargas_fotos, compartidos, clics_whatsapp)
       `, { count: 'exact' });
 

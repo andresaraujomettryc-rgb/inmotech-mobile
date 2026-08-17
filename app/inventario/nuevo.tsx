@@ -13,10 +13,12 @@ import {
 
 
 
+
   FlatList,
   Image, KeyboardAvoidingView,
   Linking // 🚀 AÑADE ESTO PARA ABRIR ENLACES
   ,
+
 
   Modal,
   Platform,
@@ -425,11 +427,23 @@ export default function NuevoInmuebleScreen() {
   // =====================================================================
   const guardarInmuebleCompleto = async () => {
     if (!formData.datos_generales.titulo) return Alert.alert("Validación", "El título público es requerido.");
+    
+    // 👇 NUEVA VALIDACIÓN INTELIGENTE DE LONGITUD DE TÍTULO
+    const limiteCaracteres = isEditMode ? 70 : 60;
+    if (formData.datos_generales.titulo.length > limiteCaracteres) {
+      return Alert.alert(
+        "Límite Excedido ⚠️", 
+        `El título no puede superar los ${limiteCaracteres} caracteres.\n\nActualmente tiene ${formData.datos_generales.titulo.length}. Por favor, resúmelo un poco.`
+      );
+    }
+    // 👆 FIN NUEVA VALIDACIÓN
+
     if (!formData.datos_generales.id_tipo_inmueble) return Alert.alert("Validación", "Debes seleccionar un Tipo de Inmueble.");
     if (formData.datos_generales.tipo_negocio === 'Venta' && (!formData.finanzas.precio_venta || formData.finanzas.precio_venta === "0")) return Alert.alert("Validación", "Debes indicar el precio de venta.");
     if (formData.datos_generales.tipo_negocio === 'Alquiler' && (!formData.finanzas.precio_alquiler || formData.finanzas.precio_alquiler === "0")) return Alert.alert("Validación", "Debes indicar el precio de alquiler.");
 
     setIsSubmitting(true);
+    // ... (el resto del código queda exactamente igual)
     
     // 🚀 UX AVISO: Informamos al usuario que el proceso requiere la app abierta
     Alert.alert(

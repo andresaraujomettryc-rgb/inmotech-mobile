@@ -12,6 +12,7 @@ import {
 
 
 
+
   FlatList,
   Image,
   ImageBackground,
@@ -31,7 +32,7 @@ import { supabase } from '../../lib/supabase';
 // --- CONFIGURACIÓN ---
 const PAGE_SIZE = 15;
 const WEB_API_URL = 'https://inmotechve.com';
-const APP_VERSION = 'v1.0.5'
+const APP_VERSION = 'v1.0.6'
 // 🚀 TRADUCTOR INTELIGENTE DE HTML A TEXTO MÓVIL
 const formatearDescripcionMovil = (htmlText: string) => {
   if (!htmlText) return 'Sin descripción';

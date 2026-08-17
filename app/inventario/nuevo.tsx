@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // 🚀 IMPORTANTE: Añadido para borradores
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,10 +15,14 @@ import {
 
 
 
+
+
   FlatList,
   Image, KeyboardAvoidingView,
   Linking // 🚀 AÑADE ESTO PARA ABRIR ENLACES
   ,
+
+
 
 
   Modal,
@@ -480,14 +485,31 @@ export default function NuevoInmuebleScreen() {
         return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
       };
 
-      // 🛡️ SOLUCIÓN RAM: Bucle secuencial. Subimos foto por foto para evitar colapso de RAM.
+      // 🛡️ SOLUCIÓN ANTI-HEIC: Bucle secuencial con conversión obligatoria a Web-JPEG
       const imgsPayload = [];
       for (let idx = 0; idx < galeria.length; idx++) {
         const foto = galeria[idx];
         if (foto.type === 'local') {
-          const url = await pipelineUpload({ uri: foto.uri, name: foto.name, type: foto.fileType }, 'inmuebles_fotos');
+          
+          // 🚀 MAGIA ANTI-HEIC: Convertimos TODO a JPEG estándar web antes de subir
+          const imgManipulada = await ImageManipulator.manipulateAsync(
+            foto.uri,
+            [{ resize: { width: 1200 } }], // Achicamos a 1200px para subir rápido y ahorrar datos
+            { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+          );
+
+          // Aseguramos que la extensión sea .jpg para que la web no se confunda
+          const nombreSeguro = foto.name ? foto.name.replace(/\.[^/.]+$/, ".jpg") : `IMG_${Date.now()}.jpg`;
+
+          const url = await pipelineUpload({ 
+            uri: imgManipulada.uri, 
+            name: nombreSeguro, 
+            type: 'image/jpeg' 
+          }, 'inmuebles_fotos');
+          
           imgsPayload.push({ url_imagen: url, url_miniatura: url, es_nuevo: true, es_principal: idx === 0, orden: idx + 1 });
         } else {
+          // Ya estaba en la nube, se mantiene igual
           imgsPayload.push({ ...foto, es_principal: idx === 0, orden: idx + 1, es_nuevo: false });
         }
       }

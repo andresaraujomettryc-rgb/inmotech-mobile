@@ -17,10 +17,12 @@ import {
 
 
 
+
   FlatList,
   Image, KeyboardAvoidingView,
   Linking // 🚀 AÑADE ESTO PARA ABRIR ENLACES
   ,
+
 
 
 
@@ -504,6 +506,7 @@ export default function NuevoInmuebleScreen() {
           const url = await pipelineUpload({ 
             uri: imgManipulada.uri, 
             name: nombreSeguro, 
+            
             type: 'image/jpeg' 
           }, 'inmuebles_fotos');
           

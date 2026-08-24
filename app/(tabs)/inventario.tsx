@@ -1,4 +1,5 @@
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -7,12 +8,6 @@ import {
   Alert,
   DeviceEventEmitter // 🚀 IMPORTAMOS EL COMUNICADOR GLOBAL
   ,
-
-
-
-
-
-
   FlatList,
   Image,
   ImageBackground,
@@ -257,17 +252,52 @@ export default function InventarioScreen() {
   const [loadingFicha, setLoadingFicha] = useState(false);
   const [activeFotoIndex, setActiveFotoIndex] = useState(0);
 
-  // 🛠️ FILTROS: Adaptado con Ordenamiento
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filtros, setFiltros] = useState({
+// 🚀 1. SACAMOS LOS FILTROS POR DEFECTO A UNA CONSTANTE
+  const filtrosPorDefecto = {
     tipo_negocio: 'TODOS', id_tipo_inmueble: 'TODOS', estatus_publicacion: 'Activo', id_usuario_encargado: '',
     habMin: '', habMax: '', mtMin: '', mtMax: '', precioMin: '', precioMax: '',
     id_estado: '', id_ciudad: '', id_municipio: '', 
     id_urbanizaciones: [] as string[],
     ordenarPor: 'Mas Recientes'
-  });
+  };
+
+  // 🛠️ FILTROS: Adaptado con Ordenamiento
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filtros, setFiltros] = useState(filtrosPorDefecto);
+  const [filtrosRestaurados, setFiltrosRestaurados] = useState(false); // 🚀 BANDERA PARA SABER SI YA CARGAMOS LA MEMORIA
+  
 
   const [catalogos, setCatalogos] = useState({ estados: [], ciudades: [], municipios: [], urbanizaciones: [], tipos: [], asesores: [] });
+
+  // =========================================================================
+  // 🚀 RECUPERAR Y GUARDAR MEMORIA DE FILTROS EN ASYNCSTORAGE
+  // =========================================================================
+  
+  // A. Recuperar filtros al iniciar la pantalla
+  useEffect(() => {
+    const cargarFiltrosGuardados = async () => {
+      try {
+        const savedFiltros = await AsyncStorage.getItem('inmotech_app_filtros');
+        const savedSearch = await AsyncStorage.getItem('inmotech_app_search');
+        
+        if (savedFiltros) setFiltros(JSON.parse(savedFiltros));
+        if (savedSearch) setSearchQuery(savedSearch);
+      } catch (e) {
+        console.error("Error cargando filtros de memoria:", e);
+      } finally {
+        setFiltrosRestaurados(true); // Ya podemos permitir que se ejecute la búsqueda
+      }
+    };
+    cargarFiltrosGuardados();
+  }, []);
+
+  // B. Guardar filtros cada vez que cambien (solo si ya los restauramos primero)
+  useEffect(() => {
+    if (filtrosRestaurados) {
+      AsyncStorage.setItem('inmotech_app_filtros', JSON.stringify(filtros));
+      AsyncStorage.setItem('inmotech_app_search', searchQuery);
+    }
+  }, [filtros, searchQuery, filtrosRestaurados]);
 
   useEffect(() => {
     const arrancarCore = async () => {
@@ -423,10 +453,13 @@ export default function InventarioScreen() {
   };
 
   useEffect(() => {
+    // 🚀 NO BUSCAR HASTA QUE LOS FILTROS SE HAYAN LEÍDO DE LA MEMORIA
+    if (!filtrosRestaurados) return;
+
     setCurrentPage(1);
     const delay = setTimeout(() => { fetchInmuebles(1, true); }, 450);
     return () => clearTimeout(delay);
-  }, [searchQuery, filtros]);
+  },[searchQuery, filtros, filtrosRestaurados]);
 
   const handleLoadMore = () => {
     if (!loading && !isLoadingMore && inmuebles.length < totalRegistros) {
@@ -453,15 +486,18 @@ export default function InventarioScreen() {
     });
   };
 
-  const limpiarFiltros = () => {
+  const limpiarFiltros = async () => {
     setSearchQuery("");
-    setFiltros({
-      tipo_negocio: 'TODOS', id_tipo_inmueble: 'TODOS', estatus_publicacion: 'Activo', id_usuario_encargado: '',
-      habMin: '', habMax: '', mtMin: '', mtMax: '', precioMin: '', precioMax: '', 
-      id_estado: '', id_ciudad: '', id_municipio: '', id_urbanizaciones: [],
-      ordenarPor: 'Mas Recientes'
-    });
+    setFiltros(filtrosPorDefecto);
     setShowFiltersModal(false);
+    
+    // 🚀 LIMPIAR LA MEMORIA TEMPORAL TAMBIÉN
+    try {
+      await AsyncStorage.removeItem('inmotech_app_filtros');
+      await AsyncStorage.removeItem('inmotech_app_search');
+    } catch (e) {
+      console.error("Error limpiando memoria:", e);
+    }
   };
 
   const openFichaProfunda = async (inm: InmuebleReal) => {
@@ -650,7 +686,7 @@ export default function InventarioScreen() {
           <View>
             {/* 🚀 TÍTULO CON BADGE DE VERSIÓN INTEGRADO */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={styles.headerTitle}>Inventario Mettryc Realty</Text>
+              <Text style={styles.headerTitle}>Mettryc Realty</Text>
               <View style={styles.versionBadge}>
                 <Text style={styles.versionText}>{APP_VERSION}</Text>
               </View>

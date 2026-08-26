@@ -8,6 +8,7 @@ import {
   Alert,
   DeviceEventEmitter // 🚀 IMPORTAMOS EL COMUNICADOR GLOBAL
   ,
+
   FlatList,
   Image,
   ImageBackground,
@@ -238,6 +239,9 @@ export default function InventarioScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
+  // 🚀 NUEVO: GATILLO PARA FORZAR RECARGA CON FILTROS ACTUALIZADOS
+  const [triggerRecarga, setTriggerRecarga] = useState(0);
+
   // 🚀 NUEVO: ESTADO PARA MOSTRAR/OCULTAR EL AVISO DE SEGUNDO PLANO
   const [showSyncWarning, setShowSyncWarning] = useState(false);
 
@@ -340,7 +344,8 @@ export default function InventarioScreen() {
     // Cuando el formulario avise que terminó, apagamos el banner y recargamos la lista
     const subSuccess = DeviceEventEmitter.addListener('inmueble_exito', () => {
       setShowSyncWarning(false);
-      handleRefresh(); // 🚀 Recarga el inventario mágicamente para mostrar la nueva casa
+      //handleRefresh(); // 🚀 Recarga el inventario mágicamente para mostrar la nueva casa
+      setTriggerRecarga(prev => prev + 1); // 🚀 NUEVO: DISPARAMOS EL GATILLO
       Alert.alert("¡Inmueble Publicado!", "El inmueble y sus fotos se subieron correctamente en segundo plano.");
     });
 
@@ -459,7 +464,7 @@ export default function InventarioScreen() {
     setCurrentPage(1);
     const delay = setTimeout(() => { fetchInmuebles(1, true); }, 450);
     return () => clearTimeout(delay);
-  },[searchQuery, filtros, filtrosRestaurados]);
+  },[searchQuery, filtros, filtrosRestaurados, triggerRecarga]);
 
   const handleLoadMore = () => {
     if (!loading && !isLoadingMore && inmuebles.length < totalRegistros) {

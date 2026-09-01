@@ -55,14 +55,14 @@ export default function MiPerfilMobileScreen() {
         const userId = authData.user.id;
         const userEmail = authData.user.email;
 
-        // B. Extraemos la Ficha Técnica cruzando con Oficinas
+       // B. Extraemos la Ficha Técnica cruzando con Oficinas (Desambiguado)
         const { data, error } = await supabase
           .from("usuarios")
           .select(`
             id_usuario, nombre_completo, email, celular_1, acepta_whatsapp, 
             foto, biografia, url_ig, url_face, url_tiktok, linkedin, link_calendario,
-            id_oficina,
-            oficinas ( nombre_oficina )
+            id_oficina, iniciales,
+            oficinas!id_oficina ( nombre_oficina ) 
           `)
           .eq("id_usuario", userId)
           .single();

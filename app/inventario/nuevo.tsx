@@ -18,10 +18,12 @@ import {
 
 
 
+
   FlatList,
   Image, KeyboardAvoidingView,
   Linking // 🚀 AÑADE ESTO PARA ABRIR ENLACES
   ,
+
 
 
 
@@ -338,7 +340,20 @@ export default function NuevoInmuebleScreen() {
       const u = { ...p.ubicacion, [campo]: valor };
       if (campo === 'id_estado') { u.id_ciudad = ""; u.id_municipio = ""; u.id_urbanizacion = ""; }
       if (campo === 'id_ciudad') { u.id_municipio = ""; u.id_urbanizacion = ""; }
-      if (campo === 'id_municipio') { u.id_urbanizacion = ""; }
+      
+      // Autocompletar desde Municipio
+      if (campo === 'id_municipio') { 
+        u.id_urbanizacion = ""; 
+        const mun = catalogos.municipios.find((m: any) => m.id_municipio === valor);
+        u.codigo_postal = mun?.codigo_postal || u.codigo_postal;
+      }
+      
+      // Autocompletar desde Urbanización (Prioridad más alta)
+      if (campo === 'id_urbanizacion') {
+        const urb = catalogos.urbanizaciones.find((ur: any) => ur.id_urbanizacion === valor);
+        u.codigo_postal = urb?.codigo_postal || u.codigo_postal;
+      }
+      
       return { ...p, ubicacion: u };
     });
   };

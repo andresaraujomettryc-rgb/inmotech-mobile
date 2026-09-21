@@ -1,6 +1,8 @@
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
+import { File, Paths } from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -8,6 +10,12 @@ import {
   Alert,
   DeviceEventEmitter // 🚀 IMPORTAMOS EL COMUNICADOR GLOBAL
   ,
+
+
+
+
+
+
 
   FlatList,
   Image,
@@ -28,7 +36,7 @@ import { supabase } from '../../lib/supabase';
 // --- CONFIGURACIÓN ---
 const PAGE_SIZE = 15;
 const WEB_API_URL = 'https://inmotechve.com';
-const APP_VERSION = 'v1.0.6'
+const APP_VERSION = 'v1.0.7'
 // 🚀 TRADUCTOR INTELIGENTE DE HTML A TEXTO MÓVIL
 const formatearDescripcionMovil = (htmlText: string) => {
   if (!htmlText) return 'Sin descripción';
@@ -234,6 +242,8 @@ export default function InventarioScreen() {
   // 🛡️ ESTADO DE AUTENTICACIÓN REAL
   const [sesionUsuario, setSesionUsuario] = useState<{ id_usuario: string, id_nivel: number, id_oficina: string } | null>(null);
 
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [duplicandoId, setDuplicandoId] = useState<string | null>(null);
   const [inmuebles, setInmuebles] = useState<InmuebleReal[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -514,6 +524,13 @@ export default function InventarioScreen() {
     try {
       const { data, error } = await supabase.from('inmuebles').select(`
         id_inmueble, descripciondetallada, enlace_video,
+        usuarios!id_usuario_encargado(
+          nombre_completo, celular_1,
+          oficinas!id_oficina (
+            nombre_oficina,
+            gerente:usuarios!id_representante(nombre_completo, celular_1)
+          )
+        ),
         inmuebles_imagenes(url_imagen, orden),
         inmuebles_caracteristicas(
           caracteristicas_catalogo:caracteristicas_catalogo!id_caracteristica(nombre, tipo)
@@ -562,33 +579,122 @@ export default function InventarioScreen() {
     }
   };
 
-  const manejarEliminar = async (id: string) => {
+  const manejarEliminar = async (inmueble: InmuebleReal) => {
+  Alert.alert(
+    "Eliminar Inmueble",
+    "⚠️ ¿Estás seguro de eliminar este inmueble permanentemente? Esta acción lo borrará de InmoTech y lo cambiará a Inactivo en WASI.",
+    [
+      { text: "Cancelar", style: "cancel" },
+      { 
+        text: "Eliminar", 
+        style: "destructive", 
+        onPress: async () => {
+          try {
+            // 1. INACTIVACIÓN Y SINCRONIZACIÓN PREVIA
+            if (inmueble.codigo_wasi) {
+              // A. Cambiamos el estatus a Inactivo en la BD local para que la API lo lea
+              await supabase
+                .from('inmuebles')
+                .update({ estatus_publicacion: 'Inactivo' })
+                .eq('id_inmueble', inmueble.id_inmueble);
+
+              // B. Forzamos la sincronización con tu API web (esperamos a que termine)
+              await fetch(`${WEB_API_URL}/api/wasi/exportar-inmueble`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_inmueble: inmueble.id_inmueble })
+              }).catch(err => console.warn("Fallo silencioso avisando a WASI:", err));
+            }
+
+            // 2. ELIMINACIÓN DEFINITIVA LOCAL
+            const { error } = await supabase
+              .from('inmuebles')
+              .delete()
+              .eq('id_inmueble', inmueble.id_inmueble);
+            
+            if (error) {
+              // Si falla por llaves foráneas, el inmueble ya quedó "Inactivo" por el Paso 1, lo cual es el plan B perfecto.
+              if (error.code === '23503' || error.message.toLowerCase().includes('foreign key')) {
+                Alert.alert("Imposible Eliminar", "❌ El inmueble tiene registros relacionados (ofertas, negociaciones). Se ha cambiado su estatus a 'Inactivo' automáticamente.");
+              } else {
+                Alert.alert("Error", `⚠️ Error al eliminar: ${error.message}`);
+              }
+            } else {
+              Alert.alert("Éxito", "✅ Inmueble eliminado de InmoTech e inactivado en WASI.");
+              // Actualizamos la UI
+              setInmuebles(prev => prev.filter(inm => inm.id_inmueble !== inmueble.id_inmueble));
+              setTotalRegistros(prev => prev - 1);
+              setSelectedInmueble(null);
+            }
+          } catch (err) {
+            Alert.alert("Error", "📡 Ocurrió un error de red al intentar el proceso.");
+          }
+        }
+      }
+    ]
+  );
+};
+
+const descargarFotosHD = async () => {
+    if (!fichaCompleta?.galeria || fichaCompleta.galeria.length === 0) return;
+    const { status } = await MediaLibrary.requestPermissionsAsync(true);
+    if (status !== 'granted') {
+      Alert.alert("Permiso Denegado", "Se requiere acceso a tu galería para guardar las fotos.");
+      return;
+    }
+    
+    setIsDownloading(true);
+    try {
+      for (let i = 0; i < fichaCompleta.galeria.length; i++) {
+        const url = fichaCompleta.galeria[i];
+        const codigoLimpio = selectedInmueble?.codigo_interno?.replace(/[^a-zA-Z0-9]/g, '') || 'MET';
+        
+        // 🚀 Nueva API SDK 54: Construimos la ruta usando Paths y la clase File
+        const tempFile = new File(Paths.cache, `${codigoLimpio}_${i}.jpg`);
+        
+        // Descargamos directamente al archivo instanciado
+        await File.downloadFileAsync(url, tempFile);
+        
+        // Guardamos en la galería usando la URI generada por la clase File
+        await MediaLibrary.saveToLibraryAsync(tempFile.uri);
+      }
+      Alert.alert("¡Galería Descargada!", "Las fotos en HD se guardaron en tu carrete.");
+    } catch (e) {
+      Alert.alert("Error", "Hubo un problema descargando algunas imágenes.");
+      console.error("Fallo descarga HD:", e);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const manejarDuplicar = async (id: string, codigo: string) => {
     Alert.alert(
-      "Eliminar Inmueble",
-      "⚠️ ¿Estás seguro de eliminar este inmueble permanentemente? Esta acción no se puede deshacer.",
+      "Duplicar Inmueble",
+      `¿Estás seguro de crear una copia exacta de ${codigo}?`,
       [
         { text: "Cancelar", style: "cancel" },
         { 
-          text: "Eliminar", 
-          style: "destructive", 
+          text: "Duplicar", 
           onPress: async () => {
+            setDuplicandoId(id);
             try {
-              const { error } = await supabase.from('inmuebles').delete().eq('id_inmueble', id);
-              
-              if (error) {
-                if (error.code === '23503' || error.message.toLowerCase().includes('foreign key')) {
-                  Alert.alert("Imposible Eliminar", "❌ El inmueble tiene registros relacionados (ej. Negociaciones, Ofertas activas) que impiden su borrado para mantener la integridad de los datos. Cambia su estatus a 'Inactivo' en su lugar.");
-                } else {
-                  Alert.alert("Error", `⚠️ Error al eliminar: ${error.message}`);
-                }
-              } else {
-                Alert.alert("Éxito", "✅ Inmueble eliminado con éxito.");
-                setInmuebles(prev => prev.filter(inm => inm.id_inmueble !== id));
-                setTotalRegistros(prev => prev - 1);
+              const res = await fetch(`${WEB_API_URL}/api/inmuebles/duplicar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_inmueble: id })
+              });
+              const d = await res.json();
+              if (d.success) {
+                Alert.alert("¡Clonación Exitosa!", `Se ha creado la Ref: ${d.codigo_interno}`);
+                handleRefresh();
                 setSelectedInmueble(null);
+              } else {
+                Alert.alert("Error", d.error || "Fallo en el servidor.");
               }
-            } catch (err) {
-              Alert.alert("Error", "📡 Ocurrió un error de red al intentar eliminar.");
+            } catch (e) {
+              Alert.alert("Error de Red", "No se pudo conectar con el motor de clonación.");
+            } finally {
+              setDuplicandoId(null);
             }
           }
         }
@@ -631,7 +737,15 @@ export default function InventarioScreen() {
           </Text>
           
           <View style={styles.miniFeatures}>
-            <Text style={styles.miniFeatureText}>📐 {item.area_construida || 0} m²</Text>
+            <Text style={styles.miniFeatureText}>
+  📐 {item.area_construida && item.area_terreno 
+      ? `${item.area_construida}m² C • ${item.area_terreno}m² T` 
+      : item.area_construida 
+        ? `${item.area_construida}m² C` 
+        : item.area_terreno 
+          ? `${item.area_terreno}m² T` 
+          : '0 m²'}
+</Text>
             <Text style={styles.miniFeatureText}>🛏️ {item.habitaciones} H</Text>
             <Text style={styles.miniFeatureText}>🛁 {item.banos} B</Text>
           </View>
@@ -902,8 +1016,66 @@ export default function InventarioScreen() {
                   ) : <Text style={styles.noReg}>Ninguna cargada.</Text>}
                 </View>
 
+                {/* 🚀 1. TARJETA DE ASESOR Y GERENCIA */}
+                <View style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderWidth: 1, borderRadius: 16, padding: 15, marginVertical: 15 }}>
+                  <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 8 }}>ASESOR TITULAR Y GERENCIA</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#0f172a', fontSize: 14, fontWeight: '800' }}>{fichaCompleta?.usuarios?.nombre_completo || selectedInmueble?.asesor_nombre}</Text>
+                      <Text style={{ color: '#64748b', fontSize: 12, fontWeight: '600', marginTop: 2 }}>{fichaCompleta?.usuarios?.oficinas?.nombre_oficina || 'Sin Oficina'}</Text>
+                      
+                      {fichaCompleta?.usuarios?.oficinas?.gerente && (
+                        <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: '600', marginTop: 4 }}>
+                          Gerencia: {fichaCompleta.usuarios.oficinas.gerente.nombre_completo}
+                        </Text>
+                      )}
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      {/* WhatsApp Gerente */}
+                      {fichaCompleta?.usuarios?.oficinas?.gerente?.celular_1 && (
+                        <TouchableOpacity 
+                          style={{ width: 36, height: 36, backgroundColor: '#f1f5f9', borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
+                          onPress={() => Linking.openURL(`whatsapp://send?phone=${fichaCompleta.usuarios.oficinas.gerente.celular_1.replace(/\D/g, '')}`)}
+                        >
+                          <FontAwesome5 name="whatsapp" size={16} color="#64748b" />
+                        </TouchableOpacity>
+                      )}
+                      {/* WhatsApp Asesor */}
+                      <TouchableOpacity 
+                        style={{ width: 40, height: 40, backgroundColor: '#25D366', borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                        onPress={() => Linking.openURL(`whatsapp://send?phone=${(fichaCompleta?.usuarios?.celular_1 || selectedInmueble?.asesor_telefono).replace(/\D/g, '')}`)}
+                      >
+                        <FontAwesome5 name="whatsapp" size={20} color="#ffffff" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
                 <View style={styles.divider} />
                 <Text style={styles.sectionHeadingTitle}>Acciones de Gestión</Text>
+
+                {/* 🚀 2. BOTÓN DE DESCARGAR FOTOS HD */}
+                <TouchableOpacity 
+                  style={[styles.btnSharePrimary, { backgroundColor: '#0284c7', marginBottom: 10 }]} 
+                  onPress={descargarFotosHD}
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? <ActivityIndicator color="#fff" size="small"/> : <Feather name="download" size={16} color="#ffffff" />}
+                  <Text style={styles.btnSharePrimaryText}>{isDownloading ? 'DESCARGANDO GALERÍA...' : 'DESCARGAR FOTOS HD'}</Text>
+                </TouchableOpacity>
+
+                {/* 🚀 3. BOTÓN DE DUPLICAR INMUEBLE */}
+                {puedeEditar && (
+                  <TouchableOpacity 
+                    style={[styles.btnSharePrimary, { backgroundColor: '#f59e0b', marginBottom: 10 }]} 
+                    onPress={() => { if(selectedInmueble) manejarDuplicar(selectedInmueble.id_inmueble, selectedInmueble.codigo_interno); }}
+                    disabled={!!duplicandoId}
+                  >
+                    {duplicandoId ? <ActivityIndicator color="#fff" size="small"/> : <Feather name="copy" size={16} color="#ffffff" />}
+                    <Text style={styles.btnSharePrimaryText}>DUPLICAR INMUEBLE</Text>
+                  </TouchableOpacity>
+                )}
                 
                 <TouchableOpacity 
                   style={[styles.btnSharePrimary, { backgroundColor: '#0ea5e9', marginBottom: 10 }]} 
@@ -918,6 +1090,7 @@ export default function InventarioScreen() {
                   <Feather name="image" size={16} color="#ffffff" />
                   <Text style={styles.btnSharePrimaryText}>GENERAR FLYER PARA RRSS</Text>
                 </TouchableOpacity>
+                
 
                 {puedeEditar ? (
                   <View style={styles.managementActionsRow}>
@@ -935,12 +1108,11 @@ export default function InventarioScreen() {
                       <Text style={styles.btnMgmtText}>MODIFICAR</Text>
                     </TouchableOpacity>
                     
+
                     {puedeEliminar && (
                       <TouchableOpacity 
                         style={styles.btnEliminar} 
-                        onPress={() => {
-                          if(selectedInmueble) manejarEliminar(selectedInmueble.id_inmueble);
-                        }}
+                        onPress={() => { if(selectedInmueble) manejarEliminar(selectedInmueble); }}
                       >
                         <Feather name="trash-2" size={14} color="#ffffff" />
                         <Text style={styles.btnMgmtText}>ELIMINAR</Text>

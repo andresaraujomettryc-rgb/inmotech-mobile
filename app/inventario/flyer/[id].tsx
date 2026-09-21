@@ -334,10 +334,23 @@ export default function GeneradorFlyerScreen() {
             <View style={styles.fFooterBlock}>
               
               {/* Matriz Técnica */}
+              {/* Matriz Técnica */}
               <View style={[styles.fMatrix, theme.subCardBg]}>
                 <View style={[styles.fMatrixItem, {borderRightColor: theme.container.borderColor || 'rgba(255,255,255,0.1)'}]}>
                    <Feather name="maximize" size={13} color={theme.accentText} style={theme.shadowStyle} />
-                   <Text style={[styles.fMatrixVal, {color: theme.accentText}, theme.shadowStyle]}>{inmueble?.area_construida || 0} m²</Text>
+                   <Text 
+                     style={[styles.fMatrixVal, {color: theme.accentText, fontSize: 8.5, textAlign: 'center'}, theme.shadowStyle]}
+                     numberOfLines={2}
+                     adjustsFontSizeToFit
+                   >
+                     {inmueble?.area_construida && inmueble?.area_terreno 
+                       ? `${inmueble.area_construida}m² C • ${inmueble.area_terreno}m² T` 
+                       : inmueble?.area_construida 
+                         ? `${inmueble.area_construida}m² C` 
+                         : inmueble?.area_terreno 
+                           ? `${inmueble.area_terreno}m² T` 
+                           : '0 m²'}
+                   </Text>
                    <Text style={[styles.fMatrixLab, {color: theme.subTextColor}, theme.shadowStyle]}>ÁREA</Text>
                 </View>
                 <View style={[styles.fMatrixItem, {borderRightColor: theme.container.borderColor || 'rgba(255,255,255,0.1)'}]}>

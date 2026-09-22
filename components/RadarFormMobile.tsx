@@ -524,7 +524,7 @@ export default function RadarFormMobile({ idSolicitud }: RadarFormProps) {
                   </View>
                 )}
 
-                <TouchableOpacity onPress={() => openWhatsApp(ext.asesor_telefono, `Hola, vi tu inmueble ${ext.titulo} en un grupo. ¿Disponible para punta compartida?`)} style={{ backgroundColor: '#4f46e5', padding: 14, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                <TouchableOpacity onPress={() => openWhatsApp(ext.asesor_telefono, `Hola Colega, recibe un cordial saludo vi tu inmueble ${ext.titulo} Publicado en un grupo. ¿Esta Disponible?`)} style={{ backgroundColor: '#4f46e5', padding: 14, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
                   <FontAwesome5 name="whatsapp" size={16} color="#ffffff" style={{ marginRight: 8 }} />
                   <Text style={{ color: '#ffffff', fontWeight: '900', fontSize: 12 }}>CONTACTAR A {ext.asesor_nombre}</Text>
                 </TouchableOpacity>

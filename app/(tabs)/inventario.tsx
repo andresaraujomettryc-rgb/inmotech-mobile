@@ -12,18 +12,7 @@ import {
   ,
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+  Dimensions, // 🚀 NUEVO
   FlatList,
   Image,
   ImageBackground,
@@ -44,6 +33,7 @@ import { supabase } from '../../lib/supabase';
 const PAGE_SIZE = 15;
 const WEB_API_URL = 'https://inmotechve.com';
 const APP_VERSION = 'v1.0.7'
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // 🚀 TRADUCTOR INTELIGENTE DE HTML A TEXTO MÓVIL
 const formatearDescripcionMovil = (htmlText: string) => {
   if (!htmlText) return 'Sin descripción';
@@ -1010,15 +1000,35 @@ const descargarFotosHD = async () => {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 50}}>
               
               <View style={styles.carouselContainer}>
-                <Image source={{ uri: fichaCompleta?.galeria?.[activeFotoIndex] || selectedInmueble?.foto_portada }} style={styles.carouselImg} />
+                {/* 🚀 NUEVO CARRUSEL DESLIZABLE (SWIPE) */}
+                <FlatList
+                  data={fichaCompleta?.galeria || [selectedInmueble?.foto_portada]}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(_, index) => `foto-${index}`}
+                  onMomentumScrollEnd={(event) => {
+                    // Calcula en qué foto estamos al terminar de deslizar
+                    const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                    setActiveFotoIndex(index);
+                  }}
+                  renderItem={({ item }) => (
+                    <Image 
+                      source={{ uri: item }} 
+                      style={{ width: SCREEN_WIDTH, height: 260, resizeMode: 'cover' }} 
+                    />
+                  )}
+                />
+
+                {/* Botón de retroceso (Volver) */}
                 <TouchableOpacity style={styles.closeFullModalBtn} onPress={() => setSelectedInmueble(null)}>
                   <Feather name="arrow-left" size={20} color="#0f172a" />
                 </TouchableOpacity>
+
+                {/* 🚀 INDICADOR NUMÉRICO FLOTANTE (Sin los botones de flechas) */}
                 {fichaCompleta?.galeria?.length > 1 && (
                   <View style={styles.carouselControls}>
-                    <TouchableOpacity onPress={() => setActiveFotoIndex(p => p === 0 ? fichaCompleta.galeria.length - 1 : p - 1)} style={styles.cBtn}><Text style={styles.cBtnText}>◀</Text></TouchableOpacity>
                     <Text style={styles.cIndexText}>{activeFotoIndex + 1} / {fichaCompleta.galeria.length}</Text>
-                    <TouchableOpacity onPress={() => setActiveFotoIndex(p => (p + 1) % fichaCompleta.galeria.length)} style={styles.cBtn}><Text style={styles.cBtnText}>▶</Text></TouchableOpacity>
                   </View>
                 )}
               </View>

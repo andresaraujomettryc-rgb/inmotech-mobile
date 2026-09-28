@@ -17,6 +17,13 @@ import {
 
 
 
+
+
+
+
+
+
+
   FlatList,
   Image,
   ImageBackground,
@@ -239,8 +246,11 @@ const SelectorMultipleBuscable = ({ titulo, datos, valores, onSelect, campoId, c
 export default function InventarioScreen() {
   const router = useRouter();
 
-  // 🛡️ ESTADO DE AUTENTICACIÓN REAL
+    // 🛡️ ESTADO DE AUTENTICACIÓN REAL
   const [sesionUsuario, setSesionUsuario] = useState<{ id_usuario: string, id_nivel: number, id_oficina: string } | null>(null);
+
+  // 🚀 NUEVO: CONTROL DE VISTA RÁPIDA (Pestañas del Título)
+  const [vistaActiva, setVistaActiva] = useState('GENERAL');
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [duplicandoId, setDuplicandoId] = useState<string | null>(null);
@@ -501,9 +511,25 @@ export default function InventarioScreen() {
     });
   };
 
+  // 🚀 NUEVO: FUNCIÓN PARA ALTERNAR ENTRE INVENTARIO GENERAL Y PROPIO
+  const cambiarVista = (vista: 'GENERAL' | 'PROPIAS') => {
+    setVistaActiva(vista);
+    if (vista === 'PROPIAS' && sesionUsuario) {
+      updateFiltro('id_usuario_encargado', sesionUsuario.id_usuario);
+    } else {
+      updateFiltro('id_usuario_encargado', '');
+    }
+  };
+
   const limpiarFiltros = async () => {
     setSearchQuery("");
-    setFiltros(filtrosPorDefecto);
+    
+    // 🚀 MODIFICADO: Clonamos los filtros por defecto y respetamos si está en "Mis Captaciones"
+    const nuevosFiltros = { ...filtrosPorDefecto };
+    if (vistaActiva === 'PROPIAS' && sesionUsuario) {
+      nuevosFiltros.id_usuario_encargado = sesionUsuario.id_usuario;
+    }
+    setFiltros(nuevosFiltros);
     setShowFiltersModal(false);
     
     // 🚀 LIMPIAR LA MEMORIA TEMPORAL TAMBIÉN
@@ -803,12 +829,27 @@ const descargarFotosHD = async () => {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View>
-            {/* 🚀 TÍTULO CON BADGE DE VERSIÓN INTEGRADO */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={styles.headerTitle}>Mettryc Realty</Text>
-              <View style={styles.versionBadge}>
+            {/* 🚀 TÍTULO CON PESTAÑAS (GENERAL / MIS CAPTACIONES) */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              
+              <TouchableOpacity onPress={() => cambiarVista('GENERAL')}>
+                <Text style={[styles.headerTitle, vistaActiva !== 'GENERAL' && { color: '#94a3b8', fontSize: 18 }]}>
+                Mettryc Realty
+                </Text>
+              </TouchableOpacity>
+              
+              <Text style={{ fontSize: 18, color: '#cbd5e1', fontWeight: '900' }}>/</Text>
+              
+              <TouchableOpacity onPress={() => cambiarVista('PROPIAS')}>
+                <Text style={[styles.headerTitle, vistaActiva !== 'PROPIAS' && { color: '#94a3b8', fontSize: 18 }]}>
+                Mis Captaciones
+                </Text>
+              </TouchableOpacity>
+
+              <View style={[styles.versionBadge, { marginLeft: 4 }]}>
                 <Text style={styles.versionText}>{APP_VERSION}</Text>
               </View>
+
             </View>
             
             <Text style={styles.headerSubtitle}>
@@ -1145,7 +1186,7 @@ const styles = StyleSheet.create({
 
   header: { paddingHorizontal: 20, paddingBottom: 15, paddingTop: Platform.OS === 'ios' ? 50 : 35 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { fontSize: 24, fontWeight: '900', color: '#0f172a' },
+  headerTitle: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   headerSubtitle: { fontSize: 11, fontWeight: '700', color: '#38bdf8', marginTop: 2, letterSpacing: 0.5 },
   versionBadge: { backgroundColor: '#e2e8f0', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, marginTop: 2 },
   versionText: { fontSize: 9, fontWeight: '900', color: '#64748b', letterSpacing: 0.5 },

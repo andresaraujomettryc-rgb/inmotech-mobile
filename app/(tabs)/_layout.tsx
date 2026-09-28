@@ -1,9 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
-// import { BlurView } from 'expo-blur'; // <- Ya no lo necesitamos
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router'; // 👈 Se agregó 'router'
 import React, { useEffect, useState } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Alert, Platform, Text, View } from 'react-native'; // 👈 Se agregó 'Alert'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const API_URL = process.env.EXPO_PUBLIC_WEB_API_URL || 'https://inmotechve.com';
@@ -35,12 +34,64 @@ export default function TabLayout() {
     fetchUnreadCount();
   }, []);
 
+  // 🔴 NUEVO: Vigía de Estatus de Usuario en Tiempo Real
+  useEffect(() => {
+    let statusChannel: any;
+
+    const setupRealtimeListener = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return; // Si no hay usuario, no hacemos nada
+
+      // Creamos el canal para escuchar cambios específicamente en este usuario
+      statusChannel = supabase
+        .channel('mobile-usuario-estatus-listener')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'usuarios',
+            filter: `id_usuario=eq.${user.id}`
+          },
+          async (payload) => {
+            // Si el estatus cambia a algo distinto de 'Activo'
+            if (payload.new.estatus !== 'Activo') {
+              Alert.alert(
+                "Sesión Terminada",
+                "Tu cuenta de afiliado ha sido inactivada por un administrador.",
+                [
+                  {
+                    text: "Entendido",
+                    onPress: async () => {
+                      await supabase.auth.signOut();
+                      // Expulsamos al usuario a la pantalla de login. 
+                      // Ajusta la ruta '/login' o '/' según el nombre de tu archivo de inicio.
+                      router.replace('/'); 
+                    }
+                  }
+                ]
+              );
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    setupRealtimeListener();
+
+    // Limpieza del canal al desmontar
+    return () => {
+      if (statusChannel) {
+        supabase.removeChannel(statusChannel);
+      }
+    };
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false, // Ocultamos la cabecera nativa fea
         tabBarStyle: {
-          // 🛑 position: 'absolute' <- ELIMINADO para que las pantallas NO se escondan
           borderTopWidth: 0,
           elevation: 10, // Le da una sombra suave en Android para separarlo del contenido
           shadowColor: '#000', // Sombra para iOS
@@ -53,8 +104,6 @@ export default function TabLayout() {
           paddingBottom: Platform.OS === 'android' ? insets.bottom + 10 : insets.bottom,
           height: Platform.OS === 'android' ? 60 + insets.bottom : 85,
         },
-        // 🛑 tabBarBackground <- ELIMINADO (Ya no necesitamos BlurView)
-        
         tabBarActiveTintColor: '#ffffff', // Letras/Iconos BLANCOS cuando está seleccionado
         tabBarInactiveTintColor: '#0f172a', // Letras/Iconos NEGROS (slate-900) cuando no está seleccionado
         tabBarLabelStyle: {

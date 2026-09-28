@@ -19,10 +19,12 @@ import {
 
 
 
+
   FlatList,
   Image, KeyboardAvoidingView,
   Linking // 🚀 AÑADE ESTO PARA ABRIR ENLACES
   ,
+
 
 
 
@@ -554,6 +556,7 @@ export default function NuevoInmuebleScreen() {
       const jsonPayloadMaestro = { 
         id_inmueble: isEditMode ? id : undefined, 
         ...formData, 
+        id_usuario: sesionUsuario?.id_usuario || null, //
         inmuebles_imagenes: imgsPayload, 
         inmuebles_documentos: payloadDocumentosFinal 
       };

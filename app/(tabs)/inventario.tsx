@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { File, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
+//import { Platform } from 'react-native'; // (Ya lo tienes en tu lista de imports)
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -10,6 +11,7 @@ import {
   Alert,
   DeviceEventEmitter // 🚀 IMPORTAMOS EL COMUNICADOR GLOBAL
   ,
+
 
 
 
@@ -655,7 +657,6 @@ export default function InventarioScreen() {
 const descargarFotosHD = async () => {
     if (!fichaCompleta?.galeria || fichaCompleta.galeria.length === 0) return;
     
-    // Solicitamos permiso (true = write-only / Agregar Solo Fotos)
     const { status } = await MediaLibrary.requestPermissionsAsync(true);
     if (status !== 'granted') {
       Alert.alert("Permiso Denegado", "Se requiere acceso a tu galería para guardar las fotos.");
@@ -664,28 +665,30 @@ const descargarFotosHD = async () => {
     
     setIsDownloading(true);
     try {
-      // 🚀 SOLUCIÓN: Generamos una marca de tiempo única para esta sesión de descarga
       const timestamp = Date.now();
 
       for (let i = 0; i < fichaCompleta.galeria.length; i++) {
         const url = fichaCompleta.galeria[i];
         const codigoLimpio = selectedInmueble?.codigo_interno?.replace(/[^a-zA-Z0-9]/g, '') || 'MET';
-        
-        // 🚀 Agregamos el timestamp al nombre. Ejemplo: MET123_17390500_0.jpg
-        // Así iOS siempre lo verá como un archivo nuevo y jamás dará error de colisión.
         const nombreUnico = `${codigoLimpio}_${timestamp}_${i}.jpg`;
         
-        // Construimos la ruta
+        // Usamos la API moderna de Expo con Paths
         const tempFile = new File(Paths.cache, nombreUnico);
         
-        // Descargamos la imagen
+        // Descargamos el archivo
         await File.downloadFileAsync(url, tempFile);
         
-        // Copiamos la foto a la app nativa de Fotos del iPhone
-        await MediaLibrary.saveToLibraryAsync(tempFile.uri);
+        // 🚀 EL FIX PARA iOS: Forzamos el prefijo file:// si no lo tiene
+        let uriFinal = tempFile.uri;
+        if (Platform.OS === 'ios' && !uriFinal.startsWith('file://')) {
+          uriFinal = `file://${uriFinal}`;
+        }
+        
+        // Pasamos la URI corregida a la galería
+        await MediaLibrary.saveToLibraryAsync(uriFinal);
       }
       
-      Alert.alert("¡Galería Descargada!", "Las fotos en HD se guardaron en tu carrete.");
+      Alert.alert("¡Galería Descargada!", "Las fotos en HD se guardaron en tu carrete (Recientes).");
     } catch (e) {
       Alert.alert("Error", "Hubo un problema descargando algunas imágenes.");
       console.error("Fallo descarga HD:", e);

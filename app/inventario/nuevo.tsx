@@ -11,26 +11,10 @@ import {
   Alert,
   DeviceEventEmitter // 🚀 IMPORTAMOS AQUÍ TAMBIÉN
   ,
-
-
-
-
-
-
-
-
-
   FlatList,
   Image, KeyboardAvoidingView,
   Linking // 🚀 AÑADE ESTO PARA ABRIR ENLACES
   ,
-
-
-
-
-
-
-
   Modal,
   Platform,
   ScrollView,

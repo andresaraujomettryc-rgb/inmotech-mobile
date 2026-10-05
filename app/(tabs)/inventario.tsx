@@ -12,6 +12,7 @@ import {
   ,
 
 
+
   Dimensions, // 🚀 NUEVO
   FlatList,
   Image,
@@ -653,6 +654,8 @@ export default function InventarioScreen() {
 
 const descargarFotosHD = async () => {
     if (!fichaCompleta?.galeria || fichaCompleta.galeria.length === 0) return;
+    
+    // Solicitamos permiso (true = write-only / Agregar Solo Fotos)
     const { status } = await MediaLibrary.requestPermissionsAsync(true);
     if (status !== 'granted') {
       Alert.alert("Permiso Denegado", "Se requiere acceso a tu galería para guardar las fotos.");
@@ -661,19 +664,27 @@ const descargarFotosHD = async () => {
     
     setIsDownloading(true);
     try {
+      // 🚀 SOLUCIÓN: Generamos una marca de tiempo única para esta sesión de descarga
+      const timestamp = Date.now();
+
       for (let i = 0; i < fichaCompleta.galeria.length; i++) {
         const url = fichaCompleta.galeria[i];
         const codigoLimpio = selectedInmueble?.codigo_interno?.replace(/[^a-zA-Z0-9]/g, '') || 'MET';
         
-        // 🚀 Nueva API SDK 54: Construimos la ruta usando Paths y la clase File
-        const tempFile = new File(Paths.cache, `${codigoLimpio}_${i}.jpg`);
+        // 🚀 Agregamos el timestamp al nombre. Ejemplo: MET123_17390500_0.jpg
+        // Así iOS siempre lo verá como un archivo nuevo y jamás dará error de colisión.
+        const nombreUnico = `${codigoLimpio}_${timestamp}_${i}.jpg`;
         
-        // Descargamos directamente al archivo instanciado
+        // Construimos la ruta
+        const tempFile = new File(Paths.cache, nombreUnico);
+        
+        // Descargamos la imagen
         await File.downloadFileAsync(url, tempFile);
         
-        // Guardamos en la galería usando la URI generada por la clase File
+        // Copiamos la foto a la app nativa de Fotos del iPhone
         await MediaLibrary.saveToLibraryAsync(tempFile.uri);
       }
+      
       Alert.alert("¡Galería Descargada!", "Las fotos en HD se guardaron en tu carrete.");
     } catch (e) {
       Alert.alert("Error", "Hubo un problema descargando algunas imágenes.");
@@ -681,7 +692,7 @@ const descargarFotosHD = async () => {
     } finally {
       setIsDownloading(false);
     }
-  };
+};
 
   const manejarDuplicar = async (id: string, codigo: string) => {
     Alert.alert(

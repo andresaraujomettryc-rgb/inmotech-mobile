@@ -2,7 +2,7 @@
   "expo": {
     "name": "InmoTech",
     "slug": "inmotech-mobile",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "inmotechmobile",
@@ -25,7 +25,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.inmotech.inmotechmobile"
+      "package": "com.inmotech.inmotechmobile",
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
+      ]
     },
     "web": {
       "output": "static",

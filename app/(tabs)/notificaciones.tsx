@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
-import { AlertCircle, ArrowLeft, Bell, Check, Info } from 'lucide-react-native';
+import { AlertCircle, ArrowLeft, Bell, Check, ExternalLink, Info } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const API_URL = process.env.EXPO_PUBLIC_WEB_API_URL || 'https://inmotechve.com';
 
@@ -11,7 +11,8 @@ interface Notificacion {
   tipo_notificacion: string;
   titulo: string;
   mensaje: string;
-  metadata: { url?: string };
+  metadata?: { url?: string };
+  enlace?: string; // 👈 Añadido para capturar el enlace directo de la BD
   leida: boolean;
   fecha_creacion: string;
 }
@@ -29,7 +30,6 @@ export default function NotificacionesMobileScreen() {
     setSessionToken(session.access_token);
 
     try {
-      // Hacemos ping a la API web con nuestro token móvil
       const res = await fetch(`${API_URL}/api/notificaciones`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
@@ -49,12 +49,12 @@ export default function NotificacionesMobileScreen() {
   }, []);
 
   const marcarComoLeida = async (id: string, url?: string) => {
-    // 1. Optimismo de UI: Lo marcamos como leído en la pantalla al instante
+    // 1. Optimismo de UI
     setNotificaciones(prev => 
       prev.map(n => n.id_notificacion === id ? { ...n, leida: true } : n)
     );
 
-    // 2. Disparamos la actualización al servidor en background
+    // 2. Servidor en background
     try {
       await fetch(`${API_URL}/api/notificaciones`, {
         method: 'PATCH',
@@ -68,11 +68,13 @@ export default function NotificacionesMobileScreen() {
       console.error("Fallo al marcar como leída");
     }
 
-    // 3. Enrutamiento móvil si hay URL
+    // 3. Enrutamiento si hay URL
     if (url) {
-      // Si la URL que viene de la API web (ej: /solicitudes/123) encaja con las rutas móviles, 
-      // la navegamos directamente usando "as any" para esquivar el tipado estricto.
-      router.push(url as any); 
+      if (url.startsWith('http')) {
+        Linking.openURL(url);
+      } else {
+        router.push(url as any);
+      }
     }
   };
 
@@ -106,44 +108,72 @@ export default function NotificacionesMobileScreen() {
             <Text style={{ fontSize: 12, fontWeight: '600', color: '#94a3b8', marginTop: 4 }}>No hay nuevas alertas en tu radar.</Text>
           </View>
         ) : (
-          notificaciones.map((notif) => (
-            <TouchableOpacity
-              key={notif.id_notificacion}
-              onPress={() => marcarComoLeida(notif.id_notificacion, notif.metadata?.url)}
-              style={{ 
-                flexDirection: 'row', 
-                backgroundColor: notif.leida ? '#ffffff' : '#f0f9ff', // Celeste si es nueva, Blanca si es leída
-                borderRadius: 20, 
-                padding: 16, 
-                marginBottom: 12, 
-                borderWidth: 1, 
-                borderColor: notif.leida ? '#f1f5f9' : '#bae6fd',
-                opacity: notif.leida ? 0.6 : 1
-              }}
-            >
-              <View style={{ 
-                backgroundColor: notif.tipo_notificacion === 'MATCH_INVENTARIO' ? '#e0f2fe' : '#f1f5f9', 
-                padding: 10, 
-                borderRadius: 14, 
-                marginRight: 12, 
-                height: 40,
-                alignItems: 'center', 
-                justifyContent: 'center' 
-              }}>
-                {notif.tipo_notificacion === 'MATCH_INVENTARIO' ? <AlertCircle size={20} color="#0284c7" /> : <Info size={20} color="#64748b" />}
-              </View>
-              
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '900', color: '#0f172a', marginBottom: 4 }} numberOfLines={1}>{notif.titulo}</Text>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569', marginBottom: 8, lineHeight: 18 }} numberOfLines={3}>{notif.mensaje}</Text>
-                <Text style={{ fontSize: 9, fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>
-                  {new Date(notif.fecha_creacion).toLocaleDateString('es-VE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </Text>
-              </View>
+          notificaciones.map((notif) => {
+            const enlaceDestino = notif.enlace || notif.metadata?.url;
 
-              {!notif.leida && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#0284c7', position: 'absolute', top: 16, right: 16 }} />}
-            </TouchableOpacity>
-          ))
+            return (
+              <View
+                key={notif.id_notificacion}
+                style={{ 
+                  flexDirection: 'row', 
+                  backgroundColor: notif.leida ? '#ffffff' : '#f0f9ff', 
+                  borderRadius: 20, 
+                  padding: 16, 
+                  marginBottom: 12, 
+                  borderWidth: 1, 
+                  borderColor: notif.leida ? '#f1f5f9' : '#bae6fd',
+                  opacity: notif.leida ? 0.7 : 1
+                }}
+              >
+                <TouchableOpacity 
+                  style={{ flex: 1, flexDirection: 'row' }}
+                  onPress={() => marcarComoLeida(notif.id_notificacion, enlaceDestino)}
+                >
+                  <View style={{ 
+                    backgroundColor: notif.tipo_notificacion === 'REPORTE' ? '#e0f2fe' : '#f1f5f9', 
+                    padding: 10, 
+                    borderRadius: 14, 
+                    marginRight: 12, 
+                    height: 40,
+                    alignItems: 'center', 
+                    justifyContent: 'center' 
+                  }}>
+                    {notif.tipo_notificacion === 'REPORTE' ? <AlertCircle size={20} color="#0284c7" /> : <Info size={20} color="#64748b" />}
+                  </View>
+                  
+                  <View style={{ flex: 1 }}>
+                    {/* 🚀 TÍTULO COMPLETO (Se removió numberOfLines para que se vea entero) */}
+                    <Text style={{ fontSize: 14, fontWeight: '900', color: '#0f172a', marginBottom: 4 }}>
+                      {notif.titulo}
+                    </Text>
+                    
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569', marginBottom: 8, lineHeight: 18 }} numberOfLines={3}>
+                      {notif.mensaje}
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>
+                        {new Date(notif.fecha_creacion).toLocaleDateString('es-VE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+
+                      {/* 🚀 BOTÓN VISUAL PARA ABRIR LA FICHA DEL INMUEBLE DIRECTAMENTE */}
+                      {enlaceDestino && (
+                        <TouchableOpacity 
+                          onPress={() => marcarComoLeida(notif.id_notificacion, enlaceDestino)}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#e0f2fe', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                        >
+                          <ExternalLink size={12} color="#0284c7" />
+                          <Text style={{ fontSize: 10, fontWeight: '800', color: '#0284c7' }}>Ver Ficha</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                {!notif.leida && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#0284c7', position: 'absolute', top: 16, right: 16 }} />}
+              </View>
+            );
+          })
         )}
       </ScrollView>
     </View>

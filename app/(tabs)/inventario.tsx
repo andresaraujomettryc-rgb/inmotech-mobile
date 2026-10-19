@@ -3,19 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { File, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-//import { Platform } from 'react-native'; // (Ya lo tienes en tu lista de imports)
+// 🚀 NUEVAS IMPORTACIONES PARA PDF Y PORTAPAPELES
+
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  DeviceEventEmitter // 🚀 IMPORTAMOS EL COMUNICADOR GLOBAL
-  ,
-
-
-
-
-  Dimensions, // 🚀 NUEVO
+  Clipboard, // 👈 Añade Clipboard aquí
+  DeviceEventEmitter,
+  Dimensions,
   FlatList,
   Image,
   ImageBackground,
@@ -27,16 +24,18 @@ import {
   Share,
   StyleSheet,
   Text,
-  TextInput, TouchableOpacity,
+  TextInput,
+  TouchableOpacity,
   View
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
 // --- CONFIGURACIÓN ---
 const PAGE_SIZE = 15;
-const WEB_API_URL = 'https://inmotechve.com';
-const APP_VERSION = 'v1.0.7'
+const WEB_API_URL = 'https://inmotechve.com'; // Asegúrate de que no tenga / al final
+const APP_VERSION = 'v1.0.7';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 // 🚀 TRADUCTOR INTELIGENTE DE HTML A TEXTO MÓVIL
 const formatearDescripcionMovil = (htmlText: string) => {
   if (!htmlText) return 'Sin descripción';
@@ -46,8 +45,8 @@ const formatearDescripcionMovil = (htmlText: string) => {
     .replace(/<li>/gi, '• ')             // Convierte las listas HTML en viñetas reales
     .replace(/<\/li>/gi, '\n')           // Salto de línea al terminar la viñeta
     .replace(/&nbsp;/gi, ' ')            // Limpia espacios HTML
-    .replace(/<[^>]+>/g, '')             // AHORA SÍ, borra cualquier otra etiqueta basura (<b>, <span>, etc)
-    .trim();                             // Limpia espacios vacíos al inicio y final
+    .replace(/<[^>]+>/g, '')             // Borra cualquier otra etiqueta basura
+    .trim();                             // Limpia espacios vacíos
 };
 
 interface InmuebleReal {
@@ -66,7 +65,7 @@ interface InmuebleReal {
 }
 
 // =========================================================================
-// 🧩 COMPONENTE UI: SELECTOR BUSCABLE ÚNICO (ESTADO, CIUDAD, MUNICIPIO)
+// 🧩 COMPONENTES DE SELECTORES (Se mantienen igual)
 // =========================================================================
 const SelectorBuscable = ({ titulo, datos, valor, onSelect, campoId, campoNombre, placeholder }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -132,9 +131,6 @@ const SelectorBuscable = ({ titulo, datos, valor, onSelect, campoId, campoNombre
   );
 };
 
-// =========================================================================
-// 🚀 COMPONENTE UI PARA SELECCIÓN MÚLTIPLE (URBANIZACIONES)
-// =========================================================================
 const SelectorMultipleBuscable = ({ titulo, datos, valores, onSelect, campoId, campoNombre, placeholder }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [busqueda, setBusqueda] = useState('');
@@ -145,9 +141,9 @@ const SelectorMultipleBuscable = ({ titulo, datos, valores, onSelect, campoId, c
   
   const toggleItem = (id: string) => {
     if (valores.includes(id)) {
-      onSelect(valores.filter((v: string) => v !== id)); // Quitar si ya está
+      onSelect(valores.filter((v: string) => v !== id)); 
     } else {
-      onSelect([...valores, id]); // Agregar nuevo
+      onSelect([...valores, id]); 
     }
   };
 
@@ -179,25 +175,13 @@ const SelectorMultipleBuscable = ({ titulo, datos, valores, onSelect, campoId, c
                 <Feather name="x" size={20} color="#0f172a" />
               </TouchableOpacity>
             </View>
-            
             <View style={styles.searchModalInputBox}>
               <Feather name="search" size={16} color="#94a3b8" />
-              <TextInput
-                style={styles.searchModalInput}
-                placeholder="Escribe para buscar zonas..."
-                value={busqueda}
-                onChangeText={setBusqueda}
-                placeholderTextColor="#94a3b8"
-              />
+              <TextInput style={styles.searchModalInput} placeholder="Escribe para buscar zonas..." value={busqueda} onChangeText={setBusqueda} placeholderTextColor="#94a3b8" />
             </View>
-
-            {/* Opcion limpiar selección / Todas */}
             <TouchableOpacity style={styles.searchModalRow} onPress={() => onSelect([])}>
-              <Text style={[styles.searchModalRowText, valores.length === 0 && {color: '#0ea5e9', fontWeight: '900'}]}>
-                Cualquiera / Todas las Zonas
-              </Text>
+              <Text style={[styles.searchModalRowText, valores.length === 0 && {color: '#0ea5e9', fontWeight: '900'}]}>Cualquiera / Todas las Zonas</Text>
             </TouchableOpacity>
-
             <FlatList
               data={datosFiltrados}
               keyExtractor={(item) => item[campoId].toString()}
@@ -205,21 +189,14 @@ const SelectorMultipleBuscable = ({ titulo, datos, valores, onSelect, campoId, c
               renderItem={({ item }) => {
                 const isSelected = valores.includes(item[campoId]);
                 return (
-                  <TouchableOpacity
-                    style={[styles.searchModalRow, { flexDirection: 'row', justifyContent: 'space-between' }]}
-                    onPress={() => toggleItem(item[campoId])}
-                  >
-                    <Text style={[styles.searchModalRowText, isSelected && {color: '#0ea5e9', fontWeight: '900'}]}>
-                      {item[campoNombre]}
-                    </Text>
+                  <TouchableOpacity style={[styles.searchModalRow, { flexDirection: 'row', justifyContent: 'space-between' }]} onPress={() => toggleItem(item[campoId])}>
+                    <Text style={[styles.searchModalRowText, isSelected && {color: '#0ea5e9', fontWeight: '900'}]}>{item[campoNombre]}</Text>
                     {isSelected && <Feather name="check-square" size={18} color="#0ea5e9" />}
                   </TouchableOpacity>
                 );
               }}
               ListEmptyComponent={<Text style={{padding:20, textAlign:'center', color:'#94a3b8'}}>No hay resultados.</Text>}
             />
-
-            {/* Botón flotante para confirmar y cerrar el modal múltiple */}
             {valores.length > 0 && (
               <TouchableOpacity style={[styles.btnApplyFilters, { marginTop: 10 }]} onPress={() => {setModalVisible(false); setBusqueda('');}}>
                 <Text style={styles.btnApplyFiltersText}>LISTO ({valores.length} SELECCIONADAS)</Text>
@@ -239,37 +216,31 @@ const SelectorMultipleBuscable = ({ titulo, datos, valores, onSelect, campoId, c
 export default function InventarioScreen() {
   const router = useRouter();
 
-    // 🛡️ ESTADO DE AUTENTICACIÓN REAL
   const [sesionUsuario, setSesionUsuario] = useState<{ id_usuario: string, id_nivel: number, id_oficina: string } | null>(null);
-
-  // 🚀 NUEVO: CONTROL DE VISTA RÁPIDA (Pestañas del Título)
   const [vistaActiva, setVistaActiva] = useState('GENERAL');
-
   const [isDownloading, setIsDownloading] = useState(false);
   const [duplicandoId, setDuplicandoId] = useState<string | null>(null);
+  
+  // 🚀 NUEVOS ESTADOS PARA REPORTAR INMUEBLE
+  const [isReporting, setIsReporting] = useState(false);
+  const [reportMessage, setReportMessage] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
   const [inmuebles, setInmuebles] = useState<InmuebleReal[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  
-  // 🚀 NUEVO: GATILLO PARA FORZAR RECARGA CON FILTROS ACTUALIZADOS
   const [triggerRecarga, setTriggerRecarga] = useState(0);
-
-  // 🚀 NUEVO: ESTADO PARA MOSTRAR/OCULTAR EL AVISO DE SEGUNDO PLANO
   const [showSyncWarning, setShowSyncWarning] = useState(false);
-
-  // Paginación y Totales
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRegistros, setTotalRegistros] = useState(0);
   
-  // Modales
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [selectedInmueble, setSelectedInmueble] = useState<InmuebleReal | null>(null);
   const [fichaCompleta, setFichaCompleta] = useState<any>(null);
   const [loadingFicha, setLoadingFicha] = useState(false);
   const [activeFotoIndex, setActiveFotoIndex] = useState(0);
 
-// 🚀 1. SACAMOS LOS FILTROS POR DEFECTO A UNA CONSTANTE
   const filtrosPorDefecto = {
     tipo_negocio: 'TODOS', id_tipo_inmueble: 'TODOS', estatus_publicacion: 'Activo', id_usuario_encargado: '',
     habMin: '', habMax: '', mtMin: '', mtMax: '', precioMin: '', precioMax: '',
@@ -278,37 +249,27 @@ export default function InventarioScreen() {
     ordenarPor: 'Mas Recientes'
   };
 
-  // 🛠️ FILTROS: Adaptado con Ordenamiento
   const [searchQuery, setSearchQuery] = useState("");
   const [filtros, setFiltros] = useState(filtrosPorDefecto);
-  const [filtrosRestaurados, setFiltrosRestaurados] = useState(false); // 🚀 BANDERA PARA SABER SI YA CARGAMOS LA MEMORIA
-  
-
+  const [filtrosRestaurados, setFiltrosRestaurados] = useState(false); 
   const [catalogos, setCatalogos] = useState({ estados: [], ciudades: [], municipios: [], urbanizaciones: [], tipos: [], asesores: [] });
 
-  // =========================================================================
-  // 🚀 RECUPERAR Y GUARDAR MEMORIA DE FILTROS EN ASYNCSTORAGE
-  // =========================================================================
-  
-  // A. Recuperar filtros al iniciar la pantalla
   useEffect(() => {
     const cargarFiltrosGuardados = async () => {
       try {
         const savedFiltros = await AsyncStorage.getItem('inmotech_app_filtros');
         const savedSearch = await AsyncStorage.getItem('inmotech_app_search');
-        
         if (savedFiltros) setFiltros(JSON.parse(savedFiltros));
         if (savedSearch) setSearchQuery(savedSearch);
       } catch (e) {
-        console.error("Error cargando filtros de memoria:", e);
+        console.error("Error cargando filtros:", e);
       } finally {
-        setFiltrosRestaurados(true); // Ya podemos permitir que se ejecute la búsqueda
+        setFiltrosRestaurados(true); 
       }
     };
     cargarFiltrosGuardados();
   }, []);
 
-  // B. Guardar filtros cada vez que cambien (solo si ya los restauramos primero)
   useEffect(() => {
     if (filtrosRestaurados) {
       AsyncStorage.setItem('inmotech_app_filtros', JSON.stringify(filtros));
@@ -326,7 +287,6 @@ export default function InventarioScreen() {
             .select('id_usuario, id_nivel, id_oficina')
             .eq('id_usuario', authData.user.id)
             .single();
-            
           if (userData) setSesionUsuario(userData);
         }
 
@@ -347,28 +307,18 @@ export default function InventarioScreen() {
     arrancarCore();
   }, []);
 
-  // 🚀 ESCUCHADOR DE EVENTOS DE SEGUNDO PLANO
   useEffect(() => {
-    // Cuando el formulario avise que empezó a subir, prendemos el banner
-    const subStart = DeviceEventEmitter.addListener('inmueble_subiendo', () => {
-      setShowSyncWarning(true);
-    });
-
-    // Cuando el formulario avise que terminó, apagamos el banner y recargamos la lista
+    const subStart = DeviceEventEmitter.addListener('inmueble_subiendo', () => setShowSyncWarning(true));
     const subSuccess = DeviceEventEmitter.addListener('inmueble_exito', () => {
       setShowSyncWarning(false);
-      //handleRefresh(); // 🚀 Recarga el inventario mágicamente para mostrar la nueva casa
-      setTriggerRecarga(prev => prev + 1); // 🚀 NUEVO: DISPARAMOS EL GATILLO
-      Alert.alert("¡Inmueble Publicado!", "El inmueble y sus fotos se subieron correctamente en segundo plano.");
+      setTriggerRecarga(prev => prev + 1); 
+      Alert.alert("¡Inmueble Publicado!", "El inmueble y sus fotos se subieron correctamente.");
     });
-
-    // Si hubo un error en segundo plano, apagamos el banner y avisamos
     const subError = DeviceEventEmitter.addListener('inmueble_error', () => {
       setShowSyncWarning(false);
-      Alert.alert("Error de Subida", "Hubo un problema subiendo el inmueble en segundo plano. Revisa tu conexión.");
+      Alert.alert("Error de Subida", "Hubo un problema subiendo el inmueble en segundo plano.");
     });
 
-    // Limpiamos los escuchadores si se cierra la pantalla
     return () => {
       subStart.remove();
       subSuccess.remove();
@@ -378,7 +328,6 @@ export default function InventarioScreen() {
   
   const fetchInmuebles = async (pageNumber: number, isRefresh = false) => {
     if (isRefresh) { setLoading(true); } else { setIsLoadingMore(true); }
-
     try {
       let query = supabase.from('inmuebles').select(`
         id_inmueble, codigo_interno, codigo_wasi, titulo, tipo_negocio, precio_venta, precio_alquiler,
@@ -390,11 +339,9 @@ export default function InventarioScreen() {
       `, { count: 'exact' });
 
       if (searchQuery) query = query.or(`titulo.ilike.%${searchQuery}%,codigo_interno.ilike.%${searchQuery}%`);
-      
       if (filtros.tipo_negocio !== 'TODOS') query = query.eq('tipo_negocio', filtros.tipo_negocio);
       if (filtros.id_tipo_inmueble !== 'TODOS') query = query.eq('id_tipo_inmueble', filtros.id_tipo_inmueble);
       if (filtros.estatus_publicacion !== 'TODOS') query = query.eq('estatus_publicacion', filtros.estatus_publicacion);
-      
       if (filtros.id_usuario_encargado) query = query.eq('id_usuario_encargado', filtros.id_usuario_encargado);
       if (filtros.id_estado) query = query.eq('id_estado', filtros.id_estado);
       if (filtros.id_ciudad) query = query.eq('id_ciudad', filtros.id_ciudad);
@@ -408,7 +355,6 @@ export default function InventarioScreen() {
       if (filtros.habMax) query = query.lte('habitaciones', parseInt(filtros.habMax));
       if (filtros.mtMin) query = query.gte('area_construida', parseFloat(filtros.mtMin));
       if (filtros.mtMax) query = query.lte('area_construida', parseFloat(filtros.mtMax));
-      
       if (filtros.precioMin) query = query.or(`precio_venta.gte.${filtros.precioMin},precio_alquiler.gte.${filtros.precioMin}`);
       if (filtros.precioMax) query = query.or(`and(precio_venta.gt.0,precio_venta.lte.${filtros.precioMax}),and(precio_alquiler.gt.0,precio_alquiler.lte.${filtros.precioMax})`);
 
@@ -432,7 +378,6 @@ export default function InventarioScreen() {
       if (data) {
         const mapeados = data.map((row: any) => {
           let urlPortada = "https://placehold.co/600x400/f1f5f9/64748b?text=SIN+FOTOGRAFIA";
-          
           if (row.inmuebles_imagenes && row.inmuebles_imagenes.length > 0) {
             const imgsOrdenadas = [...row.inmuebles_imagenes].sort((a, b) => {
               if (a.es_principal && !b.es_principal) return -1;
@@ -441,7 +386,6 @@ export default function InventarioScreen() {
             });
             urlPortada = imgsOrdenadas[0].url_imagen;
           }
-
           return {
             ...row,
             foto_portada: urlPortada,
@@ -453,9 +397,7 @@ export default function InventarioScreen() {
             tipo_inmueble_nombre: row.catalogo_tipos_inmueble?.nombre || 'Inmueble',
             asesor_nombre: row.usuarios?.nombre_completo || 'Sin Asignar',
             asesor_telefono: row.usuarios?.celular_1 || '',
-            estadisticas: Array.isArray(row.inmuebles_estadisticas) 
-                            ? row.inmuebles_estadisticas[0] 
-                            : row.inmuebles_estadisticas || null
+            estadisticas: Array.isArray(row.inmuebles_estadisticas) ? row.inmuebles_estadisticas[0] : row.inmuebles_estadisticas || null
           };
         });
 
@@ -471,9 +413,7 @@ export default function InventarioScreen() {
   };
 
   useEffect(() => {
-    // 🚀 NO BUSCAR HASTA QUE LOS FILTROS SE HAYAN LEÍDO DE LA MEMORIA
     if (!filtrosRestaurados) return;
-
     setCurrentPage(1);
     const delay = setTimeout(() => { fetchInmuebles(1, true); }, 450);
     return () => clearTimeout(delay);
@@ -504,7 +444,6 @@ export default function InventarioScreen() {
     });
   };
 
-  // 🚀 NUEVO: FUNCIÓN PARA ALTERNAR ENTRE INVENTARIO GENERAL Y PROPIO
   const cambiarVista = (vista: 'GENERAL' | 'PROPIAS') => {
     setVistaActiva(vista);
     if (vista === 'PROPIAS' && sesionUsuario) {
@@ -516,22 +455,14 @@ export default function InventarioScreen() {
 
   const limpiarFiltros = async () => {
     setSearchQuery("");
-    
-    // 🚀 MODIFICADO: Clonamos los filtros por defecto y respetamos si está en "Mis Captaciones"
     const nuevosFiltros = { ...filtrosPorDefecto };
-    if (vistaActiva === 'PROPIAS' && sesionUsuario) {
-      nuevosFiltros.id_usuario_encargado = sesionUsuario.id_usuario;
-    }
+    if (vistaActiva === 'PROPIAS' && sesionUsuario) nuevosFiltros.id_usuario_encargado = sesionUsuario.id_usuario;
     setFiltros(nuevosFiltros);
     setShowFiltersModal(false);
-    
-    // 🚀 LIMPIAR LA MEMORIA TEMPORAL TAMBIÉN
     try {
       await AsyncStorage.removeItem('inmotech_app_filtros');
       await AsyncStorage.removeItem('inmotech_app_search');
-    } catch (e) {
-      console.error("Error limpiando memoria:", e);
-    }
+    } catch (e) {}
   };
 
   const openFichaProfunda = async (inm: InmuebleReal) => {
@@ -544,7 +475,7 @@ export default function InventarioScreen() {
       const { data, error } = await supabase.from('inmuebles').select(`
         id_inmueble, descripciondetallada, enlace_video,
         usuarios!id_usuario_encargado(
-          nombre_completo, celular_1,
+          nombre_completo, celular_1, email,
           oficinas!id_oficina (
             nombre_oficina,
             gerente:usuarios!id_representante(nombre_completo, celular_1)
@@ -567,7 +498,6 @@ export default function InventarioScreen() {
         setFichaCompleta({ ...data, galeria, caracteristicas });
       }
     } catch (err) { 
-      console.error("Error Ficha:", err); 
       Alert.alert("Error", "No se pudo cargar la ficha profunda.");
       setSelectedInmueble(null);
     } 
@@ -577,7 +507,6 @@ export default function InventarioScreen() {
   const shareFichaPublica = async (inm: InmuebleReal) => {
     const url = `${WEB_API_URL}/p/${inm.id_inmueble}`;
     const precio = inm.tipo_negocio === 'Venta' ? inm.precio_venta : inm.precio_alquiler;
-    
     let msg = `*${inm.titulo}*\n`;
     msg += `• Precio (${inm.tipo_negocio}): $${precio.toLocaleString()}\n`;
     if (inm.area_construida || inm.area_terreno) msg += `• ${inm.area_construida || inm.area_terreno} m²\n`;
@@ -588,13 +517,99 @@ export default function InventarioScreen() {
 
     try { 
       const result = await Share.share({ message: msg, url: url }); 
-      
-      // 🚀 NUEVO: Si la acción fue exitosa (no la canceló), sumamos el compartido
       if (result.action === Share.sharedAction) {
         supabase.rpc('incrementar_metrica_inmueble', { p_id_inmueble: inm.id_inmueble, p_metrica: 'compartido' }).then(({ error }) => { if (error) console.warn("Error en telemetría:", error); });
       }
-    } catch (e) { 
-      console.error(e); 
+    } catch (e) {}
+  };
+
+  // 🚀 NUEVA FUNCIÓN: COPIAR AL PORTAPAPELES NATIVO
+  // 🚀 FUNCIÓN: COPIAR AL PORTAPAPELES NATIVO DE REACT NATIVE
+  const copiarDescripcionMovil = async () => {
+    if (!fichaCompleta?.descripciondetallada) return;
+    const textoLimpio = formatearDescripcionMovil(fichaCompleta.descripciondetallada);
+    Clipboard.setString(textoLimpio);
+    Alert.alert("¡Copiado!", "La descripción se ha copiado al portapapeles.");
+  };
+
+  // 🚀 NUEVA FUNCIÓN: GENERAR FICHA PDF
+  // 🚀 FUNCIÓN: GENERAR FICHA PDF (ABRE LA VISTA WEB OPTIMIZADA)
+  const generarFichaPDF = async () => {
+    if (!selectedInmueble) return;
+    
+    const urlPDF = `${WEB_API_URL}/inventario/pdf/${selectedInmueble.id_inmueble}`;
+    
+    try {
+      const supported = await Linking.canOpenURL(urlPDF);
+      if (supported) {
+        await Linking.openURL(urlPDF);
+      } else {
+        Alert.alert("Error", "No se puede abrir el enlace en este dispositivo.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Ocurrió un problema al intentar abrir el generador PDF.");
+    }
+  };
+
+  // 🚀 NUEVA FUNCIÓN: ENVIAR REPORTE AL SERVIDOR
+  // 🚀 FUNCIÓN: ENVIAR REPORTE AL SERVIDOR (CON DEPURACIÓN MÓVIL)
+  // 🚀 FUNCIÓN: ENVIAR REPORTE AL SERVIDOR (CON TOKEN DE AUTORIZACIÓN)
+  const enviarReporte = async () => {
+    if (!reportMessage.trim()) return Alert.alert("Atención", "Debes escribir un mensaje para el reporte.");
+    if (!selectedInmueble || !sesionUsuario) return;
+    
+    setIsSubmittingReport(true);
+    try {
+      const urlDestino = `${WEB_API_URL}/api/inmuebles/reportar`;
+
+      // Obtenemos el token activo de sesión
+      const { data: authData } = await supabase.auth.getSession();
+      const tokenActual = authData?.session?.access_token || '';
+
+      const res = await fetch(urlDestino, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${tokenActual}`
+        },
+        body: JSON.stringify({
+          id_inmueble: selectedInmueble.id_inmueble,
+          id_usuario_creador: sesionUsuario.id_usuario,
+          mensaje: reportMessage
+        })
+      });
+
+      const textRes = await res.text();
+      let data;
+      try {
+        data = textRes ? JSON.parse(textRes) : {};
+      } catch (e) {
+        throw new Error(`El servidor respondió con contenido no válido (Código ${res.status})`);
+      }
+
+      if (res.ok && data.success) {
+        // 1. Primero limpiamos y mostramos el aviso de éxito o dejamos que el estado fluya
+        setReportMessage("");
+        setIsReporting(false);
+
+        // 2. Opcional: una alerta rápida o simplemente regresar con feedback limpio
+        Alert.alert("✅ Éxito", "Reporte enviado con éxito a la gerencia y al asesor.", [
+          { 
+            text: "OK", 
+            onPress: () => {
+              // 3. Solo cuando el usuario lee el aviso o la acción concluye, regresamos
+              router.back(); 
+            } 
+          }
+        ]);
+      } else {
+        Alert.alert("⚠️ Error", data.error || `Error del servidor (${res.status})`);
+      }
+    } catch (error: any) {
+      Alert.alert("Error de red", `No se pudo conectar con el servidor:\n${error.message}`);
+    } finally {
+      setIsSubmittingReport(false);
     }
   };
 
@@ -609,38 +624,21 @@ export default function InventarioScreen() {
         style: "destructive", 
         onPress: async () => {
           try {
-            // 1. INACTIVACIÓN Y SINCRONIZACIÓN PREVIA
             if (inmueble.codigo_wasi) {
-              // A. Cambiamos el estatus a Inactivo en la BD local para que la API lo lea
-              await supabase
-                .from('inmuebles')
-                .update({ estatus_publicacion: 'Inactivo' })
-                .eq('id_inmueble', inmueble.id_inmueble);
-
-              // B. Forzamos la sincronización con tu API web (esperamos a que termine)
+              await supabase.from('inmuebles').update({ estatus_publicacion: 'Inactivo' }).eq('id_inmueble', inmueble.id_inmueble);
               await fetch(`${WEB_API_URL}/api/wasi/exportar-inmueble`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_inmueble: inmueble.id_inmueble })
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_inmueble: inmueble.id_inmueble })
               }).catch(err => console.warn("Fallo silencioso avisando a WASI:", err));
             }
-
-            // 2. ELIMINACIÓN DEFINITIVA LOCAL
-            const { error } = await supabase
-              .from('inmuebles')
-              .delete()
-              .eq('id_inmueble', inmueble.id_inmueble);
-            
+            const { error } = await supabase.from('inmuebles').delete().eq('id_inmueble', inmueble.id_inmueble);
             if (error) {
-              // Si falla por llaves foráneas, el inmueble ya quedó "Inactivo" por el Paso 1, lo cual es el plan B perfecto.
               if (error.code === '23503' || error.message.toLowerCase().includes('foreign key')) {
-                Alert.alert("Imposible Eliminar", "❌ El inmueble tiene registros relacionados (ofertas, negociaciones). Se ha cambiado su estatus a 'Inactivo' automáticamente.");
+                Alert.alert("Imposible Eliminar", "❌ El inmueble tiene registros relacionados. Se ha cambiado su estatus a 'Inactivo' automáticamente.");
               } else {
                 Alert.alert("Error", `⚠️ Error al eliminar: ${error.message}`);
               }
             } else {
               Alert.alert("Éxito", "✅ Inmueble eliminado de InmoTech e inactivado en WASI.");
-              // Actualizamos la UI
               setInmuebles(prev => prev.filter(inm => inm.id_inmueble !== inmueble.id_inmueble));
               setTotalRegistros(prev => prev - 1);
               setSelectedInmueble(null);
@@ -656,42 +654,29 @@ export default function InventarioScreen() {
 
 const descargarFotosHD = async () => {
     if (!fichaCompleta?.galeria || fichaCompleta.galeria.length === 0) return;
-    
     const { status } = await MediaLibrary.requestPermissionsAsync(true);
     if (status !== 'granted') {
       Alert.alert("Permiso Denegado", "Se requiere acceso a tu galería para guardar las fotos.");
       return;
     }
-    
     setIsDownloading(true);
     try {
       const timestamp = Date.now();
-
       for (let i = 0; i < fichaCompleta.galeria.length; i++) {
         const url = fichaCompleta.galeria[i];
         const codigoLimpio = selectedInmueble?.codigo_interno?.replace(/[^a-zA-Z0-9]/g, '') || 'MET';
         const nombreUnico = `${codigoLimpio}_${timestamp}_${i}.jpg`;
-        
-        // Usamos la API moderna de Expo con Paths
         const tempFile = new File(Paths.cache, nombreUnico);
-        
-        // Descargamos el archivo
         await File.downloadFileAsync(url, tempFile);
-        
-        // 🚀 EL FIX PARA iOS: Forzamos el prefijo file:// si no lo tiene
         let uriFinal = tempFile.uri;
         if (Platform.OS === 'ios' && !uriFinal.startsWith('file://')) {
           uriFinal = `file://${uriFinal}`;
         }
-        
-        // Pasamos la URI corregida a la galería
         await MediaLibrary.saveToLibraryAsync(uriFinal);
       }
-      
       Alert.alert("¡Galería Descargada!", "Las fotos en HD se guardaron en tu carrete (Recientes).");
     } catch (e) {
       Alert.alert("Error", "Hubo un problema descargando algunas imágenes.");
-      console.error("Fallo descarga HD:", e);
     } finally {
       setIsDownloading(false);
     }
@@ -699,19 +684,14 @@ const descargarFotosHD = async () => {
 
   const manejarDuplicar = async (id: string, codigo: string) => {
     Alert.alert(
-      "Duplicar Inmueble",
-      `¿Estás seguro de crear una copia exacta de ${codigo}?`,
+      "Duplicar Inmueble", `¿Estás seguro de crear una copia exacta de ${codigo}?`,
       [
         { text: "Cancelar", style: "cancel" },
-        { 
-          text: "Duplicar", 
-          onPress: async () => {
+        { text: "Duplicar", onPress: async () => {
             setDuplicandoId(id);
             try {
               const res = await fetch(`${WEB_API_URL}/api/inmuebles/duplicar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_inmueble: id })
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_inmueble: id })
               });
               const d = await res.json();
               if (d.success) {
@@ -721,27 +701,27 @@ const descargarFotosHD = async () => {
               } else {
                 Alert.alert("Error", d.error || "Fallo en el servidor.");
               }
-            } catch (e) {
-              Alert.alert("Error de Red", "No se pudo conectar con el motor de clonación.");
-            } finally {
-              setDuplicandoId(null);
-            }
+            } catch (e) { Alert.alert("Error de Red", "No se pudo conectar con el motor de clonación."); } 
+            finally { setDuplicandoId(null); }
           }
         }
       ]
     );
   };
 
-  const puedeEditar = sesionUsuario && (
-    sesionUsuario.id_nivel === 1 || 
-    sesionUsuario.id_nivel === 2 || 
-    selectedInmueble?.id_usuario_encargado === sesionUsuario.id_usuario
-  );
+  const puedeEditar = sesionUsuario && (sesionUsuario.id_nivel === 1 || sesionUsuario.id_nivel === 2 || selectedInmueble?.id_usuario_encargado === sesionUsuario.id_usuario);
+  const puedeEliminar = sesionUsuario && (sesionUsuario.id_nivel === 1 || selectedInmueble?.id_usuario_encargado === sesionUsuario.id_usuario);
 
-  const puedeEliminar = sesionUsuario && (
-    sesionUsuario.id_nivel === 1 || 
-    selectedInmueble?.id_usuario_encargado === sesionUsuario.id_usuario
-  );
+  // 🚀 FUNCIÓN UNIFICADA: Mensaje Profesional por WhatsApp
+  const contactarColegaWhatsApp = (telefono: string, tituloInmueble: string) => {
+    if (!telefono) return Alert.alert("Aviso", "Este asesor no tiene número registrado.");
+    
+    const numeroLimpio = telefono.replace(/\D/g, '');
+    const mensajePuro = `¡Saludos colega! Espero que te encuentres muy bien. Te escribo en relación al inmueble *"${tituloInmueble}"* para consultarte lo siguiente: `;
+    
+    Linking.openURL(`whatsapp://send?phone=${numeroLimpio}&text=${encodeURIComponent(mensajePuro)}`)
+      .catch(() => Alert.alert("Error", "No se pudo abrir WhatsApp en este dispositivo."));
+  };
 
   const renderCard = ({ item }: { item: InmuebleReal }) => {
     const precio = item.tipo_negocio === 'Venta' ? item.precio_venta : item.precio_alquiler;
@@ -767,52 +747,31 @@ const descargarFotosHD = async () => {
           </Text>
           
           <View style={styles.miniFeatures}>
-            <Text style={styles.miniFeatureText}>
-  📐 {item.area_construida && item.area_terreno 
-      ? `${item.area_construida}m² C • ${item.area_terreno}m² T` 
-      : item.area_construida 
-        ? `${item.area_construida}m² C` 
-        : item.area_terreno 
-          ? `${item.area_terreno}m² T` 
-          : '0 m²'}
-</Text>
+            <Text style={styles.miniFeatureText}>📐 {item.area_construida && item.area_terreno ? `${item.area_construida}m² C • ${item.area_terreno}m² T` : item.area_construida ? `${item.area_construida}m² C` : item.area_terreno ? `${item.area_terreno}m² T` : '0 m²'}</Text>
             <Text style={styles.miniFeatureText}>🛏️ {item.habitaciones} H</Text>
             <Text style={styles.miniFeatureText}>🛁 {item.banos} B</Text>
           </View>
-
                     
           <View style={styles.divider} />
 
           <View style={styles.agentRow}>
-            {/* Contenedor de Información del Asesor (Columna vertical) */}
             <View style={styles.agentInfo}>
               <Text style={styles.agentLabel}>ASESOR ENCARGADO</Text>
               <Text style={styles.agentName}><Feather name="user" size={12} color="#64748b"/> {item.asesor_nombre}</Text>
 
-              {/* 🚀 MICRO-BARRA DE ESTADÍSTICAS (MÉTELA AQUÍ ADENTRO) */}
               <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Feather name="eye" size={11} color="#94a3b8" />
-                  <Text style={styles.statText}>{item.estadisticas?.vistas || 0}</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Feather name="download" size={11} color="#94a3b8" />
-                  <Text style={styles.statText}>{item.estadisticas?.descargas_fotos || 0}</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Feather name="share-2" size={11} color="#94a3b8" />
-                  <Text style={styles.statText}>{item.estadisticas?.compartidos || 0}</Text>
-                </View>
-                <View style={[styles.statItem, styles.statWhatsapp]}>
-                  <FontAwesome5 name="whatsapp" size={11} color="#10b981" />
-                  <Text style={styles.statTextWhatsapp}>{item.estadisticas?.clics_whatsapp || 0}</Text>
-                </View>
+                <View style={styles.statItem}><Feather name="eye" size={11} color="#94a3b8" /><Text style={styles.statText}>{item.estadisticas?.vistas || 0}</Text></View>
+                <View style={styles.statItem}><Feather name="download" size={11} color="#94a3b8" /><Text style={styles.statText}>{item.estadisticas?.descargas_fotos || 0}</Text></View>
+                <View style={styles.statItem}><Feather name="share-2" size={11} color="#94a3b8" /><Text style={styles.statText}>{item.estadisticas?.compartidos || 0}</Text></View>
+                <View style={[styles.statItem, styles.statWhatsapp]}><FontAwesome5 name="whatsapp" size={11} color="#10b981" /><Text style={styles.statTextWhatsapp}>{item.estadisticas?.clics_whatsapp || 0}</Text></View>
               </View>
             </View>
           
+           {/* BOTÓN WHATSAPP EN INVENTARIO PRINCIPAL */}
             <TouchableOpacity onPress={() => {
                 supabase.rpc('incrementar_metrica_inmueble', { p_id_inmueble: item.id_inmueble, p_metrica: 'whatsapp' }).then(({ error }) => { if (error) console.warn("Error en telemetría:", error); });
-                Linking.openURL(`whatsapp://send?phone=${item.asesor_telefono.replace(/\D/g, '')}`);
+                // Usamos la nueva función profesional
+                contactarColegaWhatsApp(item.asesor_telefono, item.titulo);
               }} 
               style={styles.btnWhatsapp}>
               <FontAwesome5 name="whatsapp" size={16} color="#ffffff" />
@@ -833,32 +792,17 @@ const descargarFotosHD = async () => {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View>
-            {/* 🚀 TÍTULO CON PESTAÑAS (GENERAL / MIS CAPTACIONES) */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              
               <TouchableOpacity onPress={() => cambiarVista('GENERAL')}>
-                <Text style={[styles.headerTitle, vistaActiva !== 'GENERAL' && { color: '#94a3b8', fontSize: 18 }]}>
-                Mettryc Realty
-                </Text>
+                <Text style={[styles.headerTitle, vistaActiva !== 'GENERAL' && { color: '#94a3b8', fontSize: 18 }]}>Mettryc Realty</Text>
               </TouchableOpacity>
-              
               <Text style={{ fontSize: 18, color: '#cbd5e1', fontWeight: '900' }}>/</Text>
-              
               <TouchableOpacity onPress={() => cambiarVista('PROPIAS')}>
-                <Text style={[styles.headerTitle, vistaActiva !== 'PROPIAS' && { color: '#94a3b8', fontSize: 18 }]}>
-                Mis Captaciones
-                </Text>
+                <Text style={[styles.headerTitle, vistaActiva !== 'PROPIAS' && { color: '#94a3b8', fontSize: 18 }]}>Mis Captaciones</Text>
               </TouchableOpacity>
-
-              <View style={[styles.versionBadge, { marginLeft: 4 }]}>
-                <Text style={styles.versionText}>{APP_VERSION}</Text>
-              </View>
-
+              <View style={[styles.versionBadge, { marginLeft: 4 }]}><Text style={styles.versionText}>{APP_VERSION}</Text></View>
             </View>
-            
-            <Text style={styles.headerSubtitle}>
-              {loading && currentPage === 1 ? 'Calculando bóveda...' : `${totalRegistros} inmuebles encontrados`}
-            </Text>
+            <Text style={styles.headerSubtitle}>{loading && currentPage === 1 ? 'Calculando bóveda...' : `${totalRegistros} inmuebles encontrados`}</Text>
           </View>
           <TouchableOpacity style={styles.btnAgregar} onPress={() => router.push('/inventario/nuevo')}>
                 <Feather name="plus" size={20} color="#ffffff" />
@@ -876,19 +820,14 @@ const descargarFotosHD = async () => {
         </View>
       </View>
 
-      {/* 🚀 BANNER INFORMATIVO DE SINCRONIZACIÓN EN SEGUNDO PLANO */}
       {showSyncWarning && (
         <View style={styles.syncWarningBanner}>
           <Feather name="info" size={16} color="#0369a1" style={{ marginTop: 2 }} />
           <View style={{ flex: 1, marginHorizontal: 10 }}>
             <Text style={styles.syncWarningTitle}>Sincronización en Segundo Plano</Text>
-            <Text style={styles.syncWarningText}>
-              Si acabas de publicar un inmueble, por favor no cierres la aplicación de golpe para garantizar que todas las fotos se suban correctamente.
-            </Text>
+            <Text style={styles.syncWarningText}>Si acabas de publicar un inmueble, por favor no cierres la aplicación de golpe para garantizar que todas las fotos se suban correctamente.</Text>
           </View>
-          <TouchableOpacity onPress={() => setShowSyncWarning(false)} style={{ padding: 4 }}>
-            <Feather name="x" size={18} color="#0369a1" />
-          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowSyncWarning(false)} style={{ padding: 4 }}><Feather name="x" size={18} color="#0369a1" /></TouchableOpacity>
         </View>
       )}
 
@@ -982,19 +921,16 @@ const descargarFotosHD = async () => {
                 <View style={styles.halfWidth}><Text style={styles.sheetLabel}>HAB. MÍN</Text><TextInput style={styles.inputSheet} keyboardType="number-pad" placeholder="0" value={filtros.habMin} onChangeText={t=>updateFiltro('habMin',t)}/></View>
                 <View style={styles.halfWidth}><Text style={styles.sheetLabel}>HAB. MÁX</Text><TextInput style={styles.inputSheet} keyboardType="number-pad" placeholder="Max" value={filtros.habMax} onChangeText={t=>updateFiltro('habMax',t)}/></View>
               </View>
-
               <View style={styles.gridInputsForm}>
                 <View style={styles.halfWidth}><Text style={styles.sheetLabel}>PRECIO MÍN ($)</Text><TextInput style={styles.inputSheet} keyboardType="number-pad" placeholder="0" value={filtros.precioMin} onChangeText={t=>updateFiltro('precioMin',t)}/></View>
                 <View style={styles.halfWidth}><Text style={styles.sheetLabel}>PRECIO MÁX ($)</Text><TextInput style={styles.inputSheet} keyboardType="number-pad" placeholder="Max" value={filtros.precioMax} onChangeText={t=>updateFiltro('precioMax',t)}/></View>
               </View>
-
               <View style={styles.gridInputsForm}>
                 <View style={styles.halfWidth}><Text style={styles.sheetLabel}>M² MÍN</Text><TextInput style={styles.inputSheet} keyboardType="number-pad" placeholder="0" value={filtros.mtMin} onChangeText={t=>updateFiltro('mtMin',t)}/></View>
                 <View style={styles.halfWidth}><Text style={styles.sheetLabel}>M² MÁX</Text><TextInput style={styles.inputSheet} keyboardType="number-pad" placeholder="Max" value={filtros.mtMax} onChangeText={t=>updateFiltro('mtMax',t)}/></View>
               </View>
               
             </ScrollView>
-
             <View style={styles.sheetFooter}>
               <TouchableOpacity style={styles.btnResetFilters} onPress={limpiarFiltros}><Text style={styles.btnResetFiltersText}>LIMPIAR FILTROS</Text></TouchableOpacity>
               <TouchableOpacity style={styles.btnApplyFilters} onPress={() => setShowFiltersModal(false)}><Text style={styles.btnApplyFiltersText}>APLICAR</Text></TouchableOpacity>
@@ -1006,7 +942,7 @@ const descargarFotosHD = async () => {
       {/* ========================================================================= */}
       {/* 🖼️ MODAL DE FICHA RESUMEN PROFUNDA COMPLETA */}
       {/* ========================================================================= */}
-      <Modal visible={!!selectedInmueble} animationType="slide">
+      <Modal visible={!!selectedInmueble && !isReporting} animationType="slide">
         <View style={styles.fullModalContainer}>
           {loadingFicha || !fichaCompleta ? (
              <View style={styles.center}><ActivityIndicator size="large" color="#0ea5e9" /><Text style={styles.loadingText}>Cargando expediente completo...</Text></View>
@@ -1014,7 +950,6 @@ const descargarFotosHD = async () => {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 50}}>
               
               <View style={styles.carouselContainer}>
-                {/* 🚀 NUEVO CARRUSEL DESLIZABLE (SWIPE) */}
                 <FlatList
                   data={fichaCompleta?.galeria || [selectedInmueble?.foto_portada]}
                   horizontal
@@ -1022,24 +957,16 @@ const descargarFotosHD = async () => {
                   showsHorizontalScrollIndicator={false}
                   keyExtractor={(_, index) => `foto-${index}`}
                   onMomentumScrollEnd={(event) => {
-                    // Calcula en qué foto estamos al terminar de deslizar
                     const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                     setActiveFotoIndex(index);
                   }}
                   renderItem={({ item }) => (
-                    <Image 
-                      source={{ uri: item }} 
-                      style={{ width: SCREEN_WIDTH, height: 260, resizeMode: 'cover' }} 
-                    />
+                    <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: 260, resizeMode: 'cover' }} />
                   )}
                 />
-
-                {/* Botón de retroceso (Volver) */}
                 <TouchableOpacity style={styles.closeFullModalBtn} onPress={() => setSelectedInmueble(null)}>
                   <Feather name="arrow-left" size={20} color="#0f172a" />
                 </TouchableOpacity>
-
-                {/* 🚀 INDICADOR NUMÉRICO FLOTANTE (Sin los botones de flechas) */}
                 {fichaCompleta?.galeria?.length > 1 && (
                   <View style={styles.carouselControls}>
                     <Text style={styles.cIndexText}>{activeFotoIndex + 1} / {fichaCompleta.galeria.length}</Text>
@@ -1055,7 +982,15 @@ const descargarFotosHD = async () => {
                   <Text style={styles.fPriceText}>VALOR DE {selectedInmueble?.tipo_negocio?.toUpperCase()}: ${ (selectedInmueble?.tipo_negocio === 'Venta' ? selectedInmueble?.precio_venta : selectedInmueble?.precio_alquiler)?.toLocaleString() }</Text>
                 </View>
 
-                <Text style={styles.sectionHeadingTitle}>Descripción Detallada</Text>
+                {/* 🚀 BOTÓN COPIAR DESCRIPCIÓN */}
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: 8}}>
+                  <Text style={[styles.sectionHeadingTitle, {marginTop: 0, marginBottom: 0}]}>Descripción Detallada</Text>
+                  <TouchableOpacity onPress={copiarDescripcionMovil} style={{flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6}}>
+                    <Feather name="copy" size={12} color="#64748b" />
+                    <Text style={{fontSize: 10, color: '#64748b', fontWeight: 'bold'}}>COPIAR</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <Text style={styles.bodyParagraph}>
                     {formatearDescripcionMovil(fichaCompleta?.descripciondetallada)}
                 </Text>
@@ -1081,35 +1016,29 @@ const descargarFotosHD = async () => {
                   ) : <Text style={styles.noReg}>Ninguna cargada.</Text>}
                 </View>
 
-                {/* 🚀 1. TARJETA DE ASESOR Y GERENCIA */}
+                {/* TARJETA DE ASESOR Y GERENCIA */}
                 <View style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderWidth: 1, borderRadius: 16, padding: 15, marginVertical: 15 }}>
                   <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 8 }}>ASESOR TITULAR Y GERENCIA</Text>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: '#0f172a', fontSize: 14, fontWeight: '800' }}>{fichaCompleta?.usuarios?.nombre_completo || selectedInmueble?.asesor_nombre}</Text>
                       <Text style={{ color: '#64748b', fontSize: 12, fontWeight: '600', marginTop: 2 }}>{fichaCompleta?.usuarios?.oficinas?.nombre_oficina || 'Sin Oficina'}</Text>
-                      
                       {fichaCompleta?.usuarios?.oficinas?.gerente && (
                         <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: '600', marginTop: 4 }}>
                           Gerencia: {fichaCompleta.usuarios.oficinas.gerente.nombre_completo}
                         </Text>
                       )}
                     </View>
-
                     <View style={{ flexDirection: 'row', gap: 10 }}>
-                      {/* WhatsApp Gerente */}
                       {fichaCompleta?.usuarios?.oficinas?.gerente?.celular_1 && (
-                        <TouchableOpacity 
-                          style={{ width: 36, height: 36, backgroundColor: '#f1f5f9', borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
-                          onPress={() => Linking.openURL(`whatsapp://send?phone=${fichaCompleta.usuarios.oficinas.gerente.celular_1.replace(/\D/g, '')}`)}
-                        >
+                        <TouchableOpacity style={{ width: 36, height: 36, backgroundColor: '#f1f5f9', borderRadius: 10, justifyContent: 'center', alignItems: 'center' }} onPress={() => Linking.openURL(`whatsapp://send?phone=${fichaCompleta.usuarios.oficinas.gerente.celular_1.replace(/\D/g, '')}`)}>
                           <FontAwesome5 name="whatsapp" size={16} color="#64748b" />
                         </TouchableOpacity>
                       )}
-                      {/* WhatsApp Asesor */}
+                      {/* BOTÓN WHATSAPP EN FICHA PROFUNDA */}
                       <TouchableOpacity 
-                        style={{ width: 40, height: 40, backgroundColor: '#25D366', borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
-                        onPress={() => Linking.openURL(`whatsapp://send?phone=${(fichaCompleta?.usuarios?.celular_1 || selectedInmueble?.asesor_telefono).replace(/\D/g, '')}`)}
+                        style={{ width: 40, height: 40, backgroundColor: '#25D366', borderRadius: 12, justifyContent: 'center', alignItems: 'center' }} 
+                        onPress={() => contactarColegaWhatsApp(fichaCompleta?.usuarios?.celular_1 || selectedInmueble?.asesor_telefono, selectedInmueble?.titulo || 'Inmueble')}
                       >
                         <FontAwesome5 name="whatsapp" size={20} color="#ffffff" />
                       </TouchableOpacity>
@@ -1120,70 +1049,63 @@ const descargarFotosHD = async () => {
                 <View style={styles.divider} />
                 <Text style={styles.sectionHeadingTitle}>Acciones de Gestión</Text>
 
-                {/* 🚀 2. BOTÓN DE DESCARGAR FOTOS HD */}
-                <TouchableOpacity 
-                  style={[styles.btnSharePrimary, { backgroundColor: '#0284c7', marginBottom: 10 }]} 
-                  onPress={descargarFotosHD}
-                  disabled={isDownloading}
-                >
+                {/* 🚀 BOTÓN DE GENERAR FICHA PDF NATIVA */}
+                <TouchableOpacity style={[styles.btnSharePrimary, { backgroundColor: '#dc2626', marginBottom: 10 }]} onPress={generarFichaPDF}>
+                  <Feather name="file-text" size={16} color="#ffffff" />
+                  <Text style={styles.btnSharePrimaryText}>GENERAR FICHA PDF</Text>
+                </TouchableOpacity>
+
+                {/* BOTÓN DE DESCARGAR FOTOS HD */}
+                <TouchableOpacity style={[styles.btnSharePrimary, { backgroundColor: '#0284c7', marginBottom: 10 }]} onPress={descargarFotosHD} disabled={isDownloading}>
                   {isDownloading ? <ActivityIndicator color="#fff" size="small"/> : <Feather name="download" size={16} color="#ffffff" />}
                   <Text style={styles.btnSharePrimaryText}>{isDownloading ? 'DESCARGANDO GALERÍA...' : 'DESCARGAR FOTOS HD'}</Text>
                 </TouchableOpacity>
 
-                {/* 🚀 3. BOTÓN DE DUPLICAR INMUEBLE */}
-                {puedeEditar && (
-                  <TouchableOpacity 
-                    style={[styles.btnSharePrimary, { backgroundColor: '#f59e0b', marginBottom: 10 }]} 
-                    onPress={() => { if(selectedInmueble) manejarDuplicar(selectedInmueble.id_inmueble, selectedInmueble.codigo_interno); }}
-                    disabled={!!duplicandoId}
-                  >
-                    {duplicandoId ? <ActivityIndicator color="#fff" size="small"/> : <Feather name="copy" size={16} color="#ffffff" />}
-                    <Text style={styles.btnSharePrimaryText}>DUPLICAR INMUEBLE</Text>
-                  </TouchableOpacity>
-                )}
-                
-                <TouchableOpacity 
-                  style={[styles.btnSharePrimary, { backgroundColor: '#0ea5e9', marginBottom: 10 }]} 
-                  onPress={() => {
+                {/* BOTÓN DE GENERAR FLYER RRSS */}
+                <TouchableOpacity style={[styles.btnSharePrimary, { backgroundColor: '#0ea5e9', marginBottom: 10 }]} onPress={() => {
                     if (selectedInmueble) {
                       const idParaFlyer = selectedInmueble.id_inmueble;
                       setSelectedInmueble(null); 
                       router.push(`/inventario/flyer/${idParaFlyer}` as any);
                     }
-                  }}
-                >
+                  }}>
                   <Feather name="image" size={16} color="#ffffff" />
                   <Text style={styles.btnSharePrimaryText}>GENERAR FLYER PARA RRSS</Text>
                 </TouchableOpacity>
-                
 
+                {/* BOTÓN DE DUPLICAR INMUEBLE */}
+                {puedeEditar && (
+                  <TouchableOpacity style={[styles.btnSharePrimary, { backgroundColor: '#f59e0b', marginBottom: 10 }]} onPress={() => { if(selectedInmueble) manejarDuplicar(selectedInmueble.id_inmueble, selectedInmueble.codigo_interno); }} disabled={!!duplicandoId}>
+                    {duplicandoId ? <ActivityIndicator color="#fff" size="small"/> : <Feather name="copy" size={16} color="#ffffff" />}
+                    <Text style={styles.btnSharePrimaryText}>DUPLICAR INMUEBLE</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* 🚀 BOTÓN REPORTAR INMUEBLE */}
+                <TouchableOpacity style={[styles.btnSharePrimary, { backgroundColor: '#f97316', marginBottom: 10 }]} onPress={() => setIsReporting(true)}>
+                  <Feather name="alert-triangle" size={16} color="#ffffff" />
+                  <Text style={styles.btnSharePrimaryText}>REPORTAR INMUEBLE</Text>
+                </TouchableOpacity>
+                
                 {puedeEditar ? (
                   <View style={styles.managementActionsRow}>
-                    <TouchableOpacity 
-                      style={styles.btnModificar} 
-                      onPress={() => {
+                    <TouchableOpacity style={styles.btnModificar} onPress={() => {
                         if (selectedInmueble) {
                           const idEditar = selectedInmueble.id_inmueble;
                           setSelectedInmueble(null);
                           router.push(`/inventario/nuevo?id=${idEditar}` as any);
                         }
-                      }}
-                    >
+                      }}>
                       <Feather name="edit" size={14} color="#ffffff" />
                       <Text style={styles.btnMgmtText}>MODIFICAR</Text>
                     </TouchableOpacity>
                     
-
                     {puedeEliminar && (
-                      <TouchableOpacity 
-                        style={styles.btnEliminar} 
-                        onPress={() => { if(selectedInmueble) manejarEliminar(selectedInmueble); }}
-                      >
+                      <TouchableOpacity style={styles.btnEliminar} onPress={() => { if(selectedInmueble) manejarEliminar(selectedInmueble); }}>
                         <Feather name="trash-2" size={14} color="#ffffff" />
                         <Text style={styles.btnMgmtText}>ELIMINAR</Text>
                       </TouchableOpacity>
                     )}
-
                   </View>
                 ) : (
                   <View style={styles.alertRestringido}>
@@ -1191,10 +1113,57 @@ const descargarFotosHD = async () => {
                     <Text style={styles.alertRestringidoText}>Modificación restringida: Solo el captador del inmueble o gerencia pueden editar este expediente.</Text>
                   </View>
                 )}
-
               </View>
             </ScrollView>
           )}
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* 🚀 MODAL PARA REPORTAR INMUEBLE (SOBREPUESTO) */}
+      {/* ========================================================================= */}
+      <Modal visible={isReporting} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.searchModalContainer, { width: '90%', maxHeight: 400 }]}>
+            <View style={styles.searchModalHeader}>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                <View style={{padding: 8, backgroundColor: '#ffedd5', borderRadius: 8}}><Feather name="alert-triangle" size={18} color="#f97316" /></View>
+                <View>
+                  <Text style={styles.searchModalTitle}>Reportar Inmueble</Text>
+                  <Text style={{fontSize: 10, color: '#64748b', fontWeight: 'bold'}}>{selectedInmueble?.codigo_interno}</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setIsReporting(false)} style={styles.closeBtn}>
+                <Feather name="x" size={20} color="#0f172a" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{fontSize: 12, color: '#475569', marginBottom: 15, lineHeight: 18}}>
+              Describe el problema o error encontrado en la ficha. El reporte será enviado a la gerencia y al asesor de forma anónima.
+            </Text>
+
+            <TextInput
+              style={[styles.inputSheet, { height: 100, textAlignVertical: 'top' }]}
+              placeholder="Ej: El precio publicado no coincide..."
+              placeholderTextColor="#94a3b8"
+              value={reportMessage}
+              onChangeText={setReportMessage}
+              multiline
+            />
+
+            <View style={{flexDirection: 'row', gap: 10, marginTop: 10}}>
+              <TouchableOpacity style={[styles.btnResetFilters, {paddingVertical: 12}]} onPress={() => setIsReporting(false)}>
+                <Text style={[styles.btnResetFiltersText, {color: '#64748b'}]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.btnApplyFilters, {backgroundColor: '#f97316', paddingVertical: 12, opacity: (!reportMessage.trim() || isSubmittingReport) ? 0.5 : 1}]} 
+                onPress={enviarReporte}
+                disabled={!reportMessage.trim() || isSubmittingReport}
+              >
+                {isSubmittingReport ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.btnApplyFiltersText}>ENVIAR REPORTE</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 
@@ -1221,7 +1190,6 @@ const styles = StyleSheet.create({
   filterBtn: { width: 48, height: 48, backgroundColor: '#ffffff', borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
   filterBtnActive: { backgroundColor: '#e0f2fe', borderColor: '#bae6fd' },
 
-  // 🚀 ESTILOS DEL NUEVO BANNER DE ADVERTENCIA
   syncWarningBanner: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#f0f9ff', marginHorizontal: 20, marginBottom: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#bae6fd' },
   syncWarningTitle: { fontSize: 11, color: '#0369a1', fontWeight: '900', marginBottom: 2 },
   syncWarningText: { fontSize: 10, color: '#0284c7', fontWeight: '600', lineHeight: 14 },
@@ -1246,7 +1214,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15, fontWeight: '900', color: '#0ea5e9', lineHeight: 22, textTransform: 'uppercase', textDecorationLine: 'underline' },
   cardLocation: { fontSize: 11, color: '#475569', fontWeight: '600', marginTop: 8, lineHeight: 15 },
   miniFeatures: { flexDirection: 'row', gap: 15, marginTop: 10 },
-  // Estilos de la Micro-Barra de Estadísticas
   statsRow: { flexDirection: 'row', gap: 14, marginTop: 8, alignItems: 'center' },
   statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statText: { fontSize: 10, fontWeight: '800', color: '#94a3b8' },
@@ -1263,8 +1230,8 @@ const styles = StyleSheet.create({
   btnSharePrimary: { backgroundColor: '#0f172a', borderRadius: 12, paddingVertical: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   btnSharePrimaryText: { color: '#ffffff', fontSize: 11, fontWeight: '800' },
 
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.6)' },
-  modalSheet: { backgroundColor: '#ffffff', borderTopLeftRadius: 28, borderTopRightRadius: 28, height: '80%', paddingVertical: 20 },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.6)' },
+  modalSheet: { backgroundColor: '#ffffff', borderTopLeftRadius: 28, borderTopRightRadius: 28, height: '80%', paddingVertical: 20, width: '100%' },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   sheetTitle: { fontSize: 16, fontWeight: '900', color: '#0f172a' },
   closeBtn: { padding: 8, backgroundColor: '#f1f5f9', borderRadius: 12 },

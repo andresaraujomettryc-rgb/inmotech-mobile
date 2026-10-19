@@ -12,26 +12,39 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
 
   // 🚀 Vigía de Notificaciones para el menú inferior
+  // 🚀 Vigía de Notificaciones para el menú inferior
   useEffect(() => {
     const fetchUnreadCount = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+
         const res = await fetch(`${API_URL}/api/notificaciones`, {
-          headers: { 'Authorization': `Bearer ${session.access_token}` }
+          method: 'GET',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${session.access_token}` 
+          }
         });
-        const data = await res.json();
-        if (data.success) {
+
+        const textRes = await res.text();
+        const data = textRes ? JSON.parse(textRes) : {};
+
+        if (res.ok && data.success && data.notificaciones) {
           const unread = data.notificaciones.filter((n: any) => !n.leida).length;
           setUnreadCount(unread);
         }
       } catch (error) {
-        console.log("Silencio: Error obteniendo conteo de notificaciones");
+        console.log("Silencio: Error obteniendo conteo de notificaciones", error);
       }
     };
 
     fetchUnreadCount();
+
+    // Opcional: Actualizar el conteo cada cierto tiempo o mediante eventos
+    const interval = setInterval(fetchUnreadCount, 30000); // cada 30 segundos
+    return () => clearInterval(interval);
   }, []);
 
   // 🔴 NUEVO: Vigía de Estatus de Usuario en Tiempo Real

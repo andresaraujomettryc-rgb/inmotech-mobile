@@ -49,6 +49,15 @@ const formatearDescripcionMovil = (htmlText: string) => {
     .trim();                             // Limpia espacios vacíos
 };
 
+// 🚀 CALCULADOR DE DÍAS TRANSCURRIDOS
+const calcularDiasTranscurridos = (fechaStr: string) => {
+  if (!fechaStr) return 0;
+  const fecha = new Date(fechaStr);
+  const ahora = new Date();
+  const diferenciaMs = ahora.getTime() - Math.max(fecha.getTime(), 0);
+  return Math.floor(diferenciaMs / (1000 * 60 * 60 * 24));
+};
+
 interface InmuebleReal {
   id_inmueble: string; codigo_interno: string; codigo_wasi: string | null; titulo: string; 
   tipo_negocio: string; precio_venta: number; precio_alquiler: number; habitaciones: number; 
@@ -56,6 +65,8 @@ interface InmuebleReal {
   tipo_estado: string; estatus_publicacion: string; foto_portada: string; tipo_inmueble_nombre: string;
   pais_nombre: string; estado_nombre: string; ciudad_nombre: string; municipio_nombre: string; urbanizacion_nombre: string;
   id_usuario_encargado: string; asesor_nombre: string; asesor_telefono: string; observaciones: string | null;
+  fecha_creacion?: string; // 👈 Añadido
+  fecha_actualizacion?: string; // 👈 Añadido
   estadisticas?: {
     vistas: number;
     descargas_fotos: number;
@@ -332,10 +343,12 @@ export default function InventarioScreen() {
       let query = supabase.from('inmuebles').select(`
         id_inmueble, codigo_interno, codigo_wasi, titulo, tipo_negocio, precio_venta, precio_alquiler,
         area_construida, area_terreno, habitaciones, banos, estacionamientos, tipo_estado, estatus_publicacion, observaciones,
+        fecha_creacion, 
         id_usuario_encargado, geo_paises(nombre), geo_estados(nombre), geo_ciudades(nombre), geo_municipios(nombre), geo_urbanizaciones(nombre),
         catalogo_tipos_inmueble(nombre), usuarios!id_usuario_encargado(nombre_completo, celular_1), 
         inmuebles_imagenes(url_imagen, orden, es_principal),
-        inmuebles_estadisticas(vistas, descargas_fotos, compartidos, clics_whatsapp)
+        inmuebles_estadisticas(vistas, descargas_fotos, compartidos, clics_whatsapp),
+        inmuebles_historial(fecha_registro)
       `, { count: 'exact' });
 
       if (searchQuery) query = query.or(`titulo.ilike.%${searchQuery}%,codigo_interno.ilike.%${searchQuery}%`);
@@ -386,6 +399,14 @@ export default function InventarioScreen() {
             });
             urlPortada = imgsOrdenadas[0].url_imagen;
           }
+          // 🚀 Lógica de fecha de actualización desde el historial
+          let fechaActualizacion = row.fecha_creacion || new Date().toISOString();
+          if (row.inmuebles_historial && row.inmuebles_historial.length > 0) {
+            const historialOrdenado = [...row.inmuebles_historial].sort((a: any, b: any) => 
+              new Date(b.fecha_registro).getTime() - new Date(a.fecha_registro).getTime()
+            );
+            fechaActualizacion = historialOrdenado[0].fecha_registro;
+          }
           return {
             ...row,
             foto_portada: urlPortada,
@@ -393,6 +414,8 @@ export default function InventarioScreen() {
             estado_nombre: row.geo_estados?.nombre || '',
             ciudad_nombre: row.geo_ciudades?.nombre || '',
             municipio_nombre: row.geo_municipios?.nombre || '',
+            fecha_creacion: row.fecha_creacion,
+            fecha_actualizacion: fechaActualizacion,
             urbanizacion_nombre: row.geo_urbanizaciones?.nombre || '',
             tipo_inmueble_nombre: row.catalogo_tipos_inmueble?.nombre || 'Inmueble',
             asesor_nombre: row.usuarios?.nombre_completo || 'Sin Asignar',
@@ -473,7 +496,7 @@ export default function InventarioScreen() {
     
     try {
       const { data, error } = await supabase.from('inmuebles').select(`
-        id_inmueble, descripciondetallada, enlace_video,
+        id_inmueble, descripciondetallada, enlace_video, tour_virtual,
         usuarios!id_usuario_encargado(
           nombre_completo, celular_1, email,
           oficinas!id_oficina (
@@ -728,6 +751,12 @@ const descargarFotosHD = async () => {
     return (
       <View style={styles.card}>
         <ImageBackground source={{ uri: item.foto_portada }} style={styles.cardHero} imageStyle={{ borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
+          {/* 🚀 ETIQUETA DE DÍAS DESDE LA ÚLTIMA ACTUALIZACIÓN */}
+          <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: 'rgba(15,23,42,0.85)', paddingHorizontal: 10, paddingVertical: 4, borderBottomLeftRadius: 12, zIndex: 10 }}>
+            <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>
+              {calcularDiasTranscurridos(item.fecha_actualizacion || item.fecha_creacion || '')} DÍAS
+            </Text>
+          </View>
           <View style={styles.heroOverlay}>
             <View style={styles.badgesRow}>
               <BlurView intensity={70} tint="dark" style={styles.badgeGlass}><Text style={styles.badgeText}>{item.codigo_interno}</Text></BlurView>
@@ -1015,6 +1044,34 @@ const descargarFotosHD = async () => {
                     ))
                   ) : <Text style={styles.noReg}>Ninguna cargada.</Text>}
                 </View>
+
+{/* 🚀 BOTONES DE RECORRIDO MULTIMEDIA (VISIBLES BAJO DEMANDA) */}
+                {(fichaCompleta?.enlace_video || fichaCompleta?.tour_virtual) && (
+                  <>
+                    <Text style={styles.sectionHeadingTitle}>Recorrido Multimedia</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                      {fichaCompleta?.enlace_video && (
+                        <TouchableOpacity 
+                          style={{ flex: 1, backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderWidth: 1, paddingVertical: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                          onPress={() => Linking.openURL(fichaCompleta.enlace_video)}
+                        >
+                          <Feather name="youtube" size={16} color="#e11d48" />
+                          <Text style={{ color: '#e11d48', fontSize: 11, fontWeight: '900' }}>VER VIDEO</Text>
+                        </TouchableOpacity>
+                      )}
+                      
+                      {fichaCompleta?.tour_virtual && (
+                        <TouchableOpacity 
+                          style={{ flex: 1, backgroundColor: '#eef2ff', borderColor: '#c7d2fe', borderWidth: 1, paddingVertical: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                          onPress={() => Linking.openURL(fichaCompleta.tour_virtual)}
+                        >
+                          <Feather name="map" size={16} color="#4f46e5" />
+                          <Text style={{ color: '#4f46e5', fontSize: 11, fontWeight: '900' }}>TOUR 360°</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </>
+                )}
 
                 {/* TARJETA DE ASESOR Y GERENCIA */}
                 <View style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderWidth: 1, borderRadius: 16, padding: 15, marginVertical: 15 }}>

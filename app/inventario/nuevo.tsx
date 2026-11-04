@@ -11,10 +11,12 @@ import {
   Alert,
   DeviceEventEmitter // 🚀 IMPORTAMOS AQUÍ TAMBIÉN
   ,
+
   FlatList,
   Image, KeyboardAvoidingView,
   Linking // 🚀 AÑADE ESTO PARA ABRIR ENLACES
   ,
+
   Modal,
   Platform,
   ScrollView,
@@ -360,12 +362,40 @@ export default function NuevoInmuebleScreen() {
   };
 
   const seleccionarFotos = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.7 });
+    let result = await ImagePicker.launchImageLibraryAsync({ 
+      mediaTypes: ['images'], // en Expo SDK 50+ se usa ['images'] en lugar de MediaTypeOptions.Images
+      allowsMultipleSelection: true, 
+      quality: 0.7 
+    });
+
     if (!result.canceled) {
-      const nuevas = result.assets.map(a => ({
-        type: 'local', uri: a.uri, name: a.fileName || `IMG_${Date.now()}.jpg`, fileType: 'image/jpeg'
-      }));
-      setGaleria(p => [...p, ...nuevas]);
+      const fotosHorizontales: any[] = [];
+      let fotosRechazadas = 0;
+
+      result.assets.forEach(a => {
+        // Aprovechamos que Expo nos da las dimensiones directamente
+        if (a.width >= a.height) {
+          fotosHorizontales.push({
+            type: 'local', 
+            uri: a.uri, 
+            name: a.fileName || `IMG_${Date.now()}.jpg`, 
+            fileType: 'image/jpeg'
+          });
+        } else {
+          fotosRechazadas++;
+        }
+      });
+
+      if (fotosRechazadas > 0) {
+        Alert.alert(
+          "📸 Fotos Verticales Omitidas",
+          `Se omitieron ${fotosRechazadas} foto(s) vertical(es). Para mantener el estándar de los portales inmobiliarios, solo se admiten fotografías horizontales.`
+        );
+      }
+
+      if (fotosHorizontales.length > 0) {
+        setGaleria(p => [...p, ...fotosHorizontales]);
+      }
     }
   };
 
@@ -696,18 +726,54 @@ export default function NuevoInmuebleScreen() {
             <Text style={styles.labelInput}>Código Postal</Text>
             <TextInput style={styles.inputBox} value={formData.ubicacion.codigo_postal} onChangeText={t=>uUbi('codigo_postal', t)} placeholder="Ej. 2001" />
 
+            {/* BOTÓN DE GPS NATIVO */}
             <TouchableOpacity style={styles.btnGpsNativo} onPress={capturarGPS}>
               <Feather name="crosshair" size={16} color="#0369a1" />
-              <Text style={styles.btnGpsNativoText}>CAPTURAR COORDENADAS GPS SATELITAL</Text>
+              <Text style={styles.btnGpsNativoText}>CAPTURAR MI UBICACIÓN ACTUAL</Text>
             </TouchableOpacity>
 
+            <Text style={{fontSize: 10, color: '#94a3b8', textAlign: 'center', marginBottom: 10, paddingHorizontal: 10}}>
+              Si no estás en el inmueble, puedes pegar las coordenadas de Google Maps manualmente abajo:
+            </Text>
+
+            {/* INPUTS DE COORDENADAS AHORA EDITABLES */}
             <View style={styles.inputRow}>
-              <View style={styles.halfCol}><Text style={styles.labelInput}>Latitud</Text><TextInput style={[styles.inputBox, styles.mono]} value={formData.ubicacion.latitud.toString()} editable={false}/></View>
-              <View style={styles.halfCol}><Text style={styles.labelInput}>Longitud</Text><TextInput style={[styles.inputBox, styles.mono]} value={formData.ubicacion.longitud.toString()} editable={false}/></View>
+              <View style={styles.halfCol}>
+                <Text style={styles.labelInput}>Latitud</Text>
+                <TextInput 
+                  style={[styles.inputBox, styles.mono]} 
+                  value={formData.ubicacion.latitud.toString()} 
+                  onChangeText={t => uUbi('latitud', parseFloat(t) || 0)}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.halfCol}>
+                <Text style={styles.labelInput}>Longitud</Text>
+                <TextInput 
+                  style={[styles.inputBox, styles.mono]} 
+                  value={formData.ubicacion.longitud.toString()} 
+                  onChangeText={t => uUbi('longitud', parseFloat(t) || 0)}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
 
-            <Text style={styles.labelInput}>Dirección Exacta (Resguardo Confidencial)</Text>
-            <TextInput style={[styles.inputBox, {height: 70}]} multiline value={formData.ubicacion.direccion_exacta} onChangeText={t=>uUbi('direccion_exacta', t)} placeholder="Av. Principal, Edificio Don Bosco, Apto 3B..." />
+            {/* DIRECCIÓN EXACTA CON LÍMITE DE 50 CARACTERES */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 10 }}>
+              <Text style={styles.labelInput}>Dirección Exacta (Confidencial)</Text>
+              <Text style={[styles.labelInput, { color: formData.ubicacion.direccion_exacta.length >= 50 ? '#ef4444' : '#94a3b8', marginBottom: 8 }]}>
+                {formData.ubicacion.direccion_exacta.length}/50
+              </Text>
+            </View>
+            
+            <TextInput 
+              style={[styles.inputBox, {height: 70}, formData.ubicacion.direccion_exacta.length >= 50 && { borderColor: '#ef4444' }]} 
+              multiline 
+              maxLength={50}
+              value={formData.ubicacion.direccion_exacta} 
+              onChangeText={t=>uUbi('direccion_exacta', t)} 
+              placeholder="Ej: Av. Principal, Edificio Don Bosco, Apto 3B" 
+            />
           </View>
         )}
 

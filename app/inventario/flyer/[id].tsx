@@ -1,10 +1,11 @@
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import * as MediaLibrary from 'expo-media-library';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { supabase } from '../../../lib/supabase'; // Asegúrate que esta ruta a Supabase sea correcta
+
 
 // Definición de Tipos de Modelos equivalentes a la versión Web
 export type ModeloFlyer = "MODELO_1" | "MODELO_2" | "MODELO_3" | "MODELO_4" | "MODELO_5" | "MODELO_6";
@@ -73,6 +74,14 @@ export default function GeneradorFlyerScreen() {
   const descargarFlyer = async () => {
     setIsExporting(true);
     try {
+      // 1. Solicitar permisos de almacenamiento/galería
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status !== 'granted') {
+        Alert.alert("Permiso Denegado", "Se requiere acceso a tu galería para guardar el flyer.");
+        return;
+      }
+
+      // 2. Capturar la vista en alta resolución
       const uri = await captureRef(viewRef, {
         format: 'jpg',
         quality: 1,
@@ -80,17 +89,13 @@ export default function GeneradorFlyerScreen() {
         height: 1080
       });
 
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'image/jpeg',
-          dialogTitle: `Flyer_${inmueble?.codigo_interno}.jpg`,
-        });
-      } else {
-        alert("Tu dispositivo no soporta compartir imágenes directamente.");
-      }
+      // 3. Guardar directamente en la galería por defecto
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert("¡Éxito!", "El flyer se ha guardado correctamente en tu galería de fotos.");
+
     } catch (error) {
       console.error(error);
-      alert("Hubo un error al compilar el lienzo.");
+      Alert.alert("Error", "Hubo un error al guardar el lienzo.");
     } finally {
       setIsExporting(false);
     }

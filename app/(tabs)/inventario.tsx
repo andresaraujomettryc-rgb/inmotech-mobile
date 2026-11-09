@@ -49,6 +49,17 @@ const formatearDescripcionMovil = (htmlText: string) => {
     .trim();                             // Limpia espacios vacíos
 };
 
+const crearRegexAcentos = (texto: string) => {
+  if (!texto) return '';
+  const seguro = texto.trim().replace(/"/g, ''); // Previene romper el string de Supabase
+  return seguro
+    .replace(/[aáAÁ]/g, '[aá]')
+    .replace(/[eéEÉ]/g, '[eé]')
+    .replace(/[iíIÍ]/g, '[ií]')
+    .replace(/[oóOÓ]/g, '[oó]')
+    .replace(/[uúUÚüÜ]/g, '[uúü]');
+};
+
 // 🚀 CALCULADOR DE DÍAS TRANSCURRIDOS
 const calcularDiasTranscurridos = (fechaStr: string) => {
   if (!fechaStr) return 0;
@@ -351,7 +362,10 @@ export default function InventarioScreen() {
         inmuebles_historial(fecha_registro)
       `, { count: 'exact' });
 
-      if (searchQuery) query = query.or(`titulo.ilike.%${searchQuery}%,codigo_interno.ilike.%${searchQuery}%`);
+      if (searchQuery) {
+      const searchRegex = crearRegexAcentos(searchQuery);
+      query = query.or(`titulo.imatch."${searchRegex}",codigo_interno.ilike.%${searchQuery}%`);
+      }
       if (filtros.tipo_negocio !== 'TODOS') query = query.eq('tipo_negocio', filtros.tipo_negocio);
       if (filtros.id_tipo_inmueble !== 'TODOS') query = query.eq('id_tipo_inmueble', filtros.id_tipo_inmueble);
       if (filtros.estatus_publicacion !== 'TODOS') query = query.eq('estatus_publicacion', filtros.estatus_publicacion);

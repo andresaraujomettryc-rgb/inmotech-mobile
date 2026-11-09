@@ -147,7 +147,7 @@ export default function NotificacionesMobileScreen() {
                       {notif.titulo}
                     </Text>
                     
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569', marginBottom: 8, lineHeight: 18 }} numberOfLines={3}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569', marginBottom: 8, lineHeight: 18 }}>
                       {notif.mensaje}
                     </Text>
 
